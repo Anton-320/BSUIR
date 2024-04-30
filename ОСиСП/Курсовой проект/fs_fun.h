@@ -21,4 +21,4 @@ uint32_t get_fatOffset(const BootSector* bs);
 FAT_Entry read_fat_entry(int fd, uint32_t cluster_number, const BootSector *bs);
 
 //Размер записи таблицы FAT
-#define FAT_ENTRY_SIZE 4
+#define FAT_RECORD_SIZE 4

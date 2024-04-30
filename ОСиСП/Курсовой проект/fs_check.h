@@ -4,13 +4,13 @@
 /**
  * Проверка загрузочного сектора
 */
-int check_boot_sector(const BootSector *bs);
+int check_boot_sector();
 
 /**
  * Вывод статистики о загрузочном секторе
 */
-void print_stat_boot_sector(const BootSector *bs);
+void print_filesystem_info();
 
-void check_for_gaps(int fd, const BootSector *bs, uint32_t totalClusters);
+void check_for_gaps(int fd, const BootSector *bs);
 
-PAIR check_fatTable();
+PAIR check_fat_table();

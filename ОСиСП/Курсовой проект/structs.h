@@ -12,13 +12,13 @@ typedef struct {
     uint16_t bytesPerSector;     // Количество байтов в секторе
     uint8_t  sectorsPerCluster;  // Количество секторов в кластере
     uint16_t resvdSectCount;     // Количество секторов в Reserved Region
-    uint8_t  fatCount;           // Количество FAT-таблиц
+    uint8_t  numFats;           // Количество FAT-таблиц
     uint16_t rootEntCnt_16;      // Количество записей в корневом каталоге (только для FAT12/FAT16, для FAT32 должно быть равно 0)
     uint16_t totalSectors_16;    // Общее количество секторов на носителе (только для FAT12/FAT16, для FAT32 должно быть равно 0)
     uint8_t  mediaType;          // Тип носителя информации (диска)
     uint16_t fatSz_16;           // Количество секторов в одной FAT-таблице (только для FAT12/FAT16, для FAT32 должно быть равно 0)
     uint16_t sectorsPerTrack;    // Количество секторов на дорожке
-    uint16_t heads;              // Количество головок устройства
+    uint16_t numHeads;              // Количество головок устройства
     uint32_t hiddenSectors;      // Количество скрытых секторов перед разделом
     uint32_t totalSectors_32;    // Общее количество секторов на носителе (только для FAT32)
 
@@ -44,7 +44,7 @@ typedef struct _filesystem_info_sector_structure {
     uint8_t reserved1[480];     // Зарезервировано на будущее
     uint32_t signature;		    // Сигнатура для точного определения положения следующих за ним полей. Всегда равен 0x61417272
     uint32_t free_clusters;	    // Хранит последнее известное количество свободных кластеров диска. Если равно 0xFFFFFFFF, то количество неизвестно, и должно быть вычислено
-    uint32_t next_cluster;	    // Вспомогательное значение для драйвера FAT. Содержит номер кластера, начиная с которого надо искать свободный кластер (для быстроты)
+    uint32_t nextCluster;	    // Вспомогательное значение для драйвера FAT. Содержит номер кластера, начиная с которого надо искать свободный кластер (для быстроты)
     uint8_t reserved2[12];      // Зарезервировано на будущее
     uint32_t boot_sign;         // Значение 0xAA550000. Это конечная сигнатура для точного определения сектора FSInfo
 } __attribute__ ((packed)) FS_Info;
@@ -66,7 +66,7 @@ typedef struct _directory_entry_structure {
 
 typedef struct _fat_list_node {
     uint32_t cluster;       // Номер текущего кластера
-    uint32_t next_cluster;  // Номер следующего кластера в цепочке
+    uint32_t nextCluster;  // Номер следующего кластера в цепочке
 } FAT_Entry;
 
 typedef struct _int_pair {
