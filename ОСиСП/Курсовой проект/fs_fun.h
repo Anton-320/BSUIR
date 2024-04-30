@@ -1,29 +1,24 @@
 #pragma once
-#include "general_fun.h"
-#include <fcntl.h>      //для функции open() и другого
-#include <unistd.h>
+#include "io.h"
+#include "structs.h"
 
 
 /**
- * Открыть дисковое устройство с файловой системой
- * Если rw == 0, то только для чтения, иначе для чтения и записи
+ * Поиск входной точки кластера в таблице FAT по номеру кластера
+ * @param [in]  N   номер кластера
+ * @param [in]  bs  указатель на структуру загрузочного сектора
 */
-void fs_open(const char *path, int rw);
+uint64_t get_fatEnt_offset(uint64_t N, const BootSector *bs);
 
 /**
- * Прочитать из файловой системы
+ * 
 */
-void fs_read(off_t pos, int size, void *data);
-
-
-int fs_test(off_t pos, int size);
+uint32_t get_fatOffset(const BootSector* bs);
 
 /**
- * Записать на устройство в файловую систему
+ * 
 */
-void fs_write(off_t pos, int size, void *data);
+FAT_Entry read_fat_entry(int fd, uint32_t cluster_number, const BootSector *bs);
 
-/**
- * Закрыть устройство / файл с файловой системой
-*/
-void fs_close(int write);
+//Размер записи таблицы FAT
+#define FAT_ENTRY_SIZE 4

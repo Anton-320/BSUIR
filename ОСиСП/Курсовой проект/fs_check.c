@@ -2,11 +2,14 @@
 
 extern int fd;
 
+static BootSector bs;
+
 /**
  * Проверка загрузочного сектора (boot sector)
- * Возвращает
- * 0, если нет проблем
- * -1, если есть проблемы
+ * 
+ * @param[in] bootSector    указатель структуру с основными параметрами загрузочного сектора
+ * 
+ * @returns                 общее количество неполадок и предупреждений
 */
 int check_boot_sector(const BootSector* bootSector)
 {
@@ -36,9 +39,9 @@ int check_boot_sector(const BootSector* bootSector)
     }
     
     
-    if (bootSector->rsvdSectCount <= 0) {
+    if (bootSector->resvdSectCount <= 0) {
         fprintf(stderr, "Неисправность: BIOS Parameter Block по смещению 14: %hu недопустимое количество секторов в Reserved Region равно \n"
-         "Количество секторов в Reserved Region должно быть больше 0\n", bootSector->rsvdSectCount);
+         "Количество секторов в Reserved Region должно быть больше 0\n", bootSector->resvdSectCount);
         errAndWrnCnt += 1;
     }
 
@@ -74,4 +77,41 @@ int check_boot_sector(const BootSector* bootSector)
     }
     
     return errAndWrnCnt;
+}
+
+void print_stat_boot_sector(const BootSector *bs) {
+    //TODO
+}
+
+PAIR check_fatTable(const BootSector* bs) {
+    
+    PAIR result = {};
+    int errors = 0;     //количество ошибок
+    int warns = 0;      //количество предупреждений
+
+    uint32_t fatOffset = get_fatOffset(bs);
+    //TODO
+
+    return result;
+}
+
+// Функция проверки наличия разрывов в цепочках кластеров
+void check_for_gaps(int fd, const BootSector* bs, uint32_t totalClusters) {
+
+    for (uint32_t i = 2; i < totalClusters; i++) {
+        FAT_Entry entry;        //TODO
+        if (entry.next_cluster >= 0x0FFFFFFF) { // Если кластер является последним в цепочке
+            continue;
+        }
+
+        uint32_t next_cluster = entry.next_cluster;
+        if (next_cluster >= totalClusters) {
+            printf("Обнаружен разрыв в цепочке кластеров: кластер %d points to invalid cluster %d\n", i, next_cluster);
+        } else {
+            FAT_Entry next_entry;   //TODO read
+            if (next_entry.cluster != i) {
+                printf("Обнаружен разрыв в цепочке кластеров: cluster %d points to cluster %d, but cluster %d does not point back\n", i, next_cluster, next_cluster);
+            }
+        }
+    }
 }

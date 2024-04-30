@@ -1,12 +1,12 @@
 /**
- * Утилита проверки целосности файловой системы FAT32
+ * Утилита проверки целостности файловой системы FAT32
  * аргумент командной строки - название устройства, на котором нужно проверять файловую систему
 */
 
 
 #include "Header.h"
 
-extern size_t strlcpy(char *__restrict__ __dest, const char *__restrict__ __src, size_t __n);
+extern int fd;
 
 int main(int argc, char* argv[]) {
 	
@@ -14,7 +14,10 @@ int main(int argc, char* argv[]) {
 		perror("Error: Invalid argument");
 		return 0;
 	}
-
+	
+	fs_open(argv[1], 0);
+	
+	
 	char deviceName[9] = {};
 	strlcpy(deviceName, argv[1], strlen(argv[1]));
 	return 0;
