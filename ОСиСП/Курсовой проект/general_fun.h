@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
+#include <stdbool.h>
+#include <curses.h>
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 
@@ -15,4 +17,14 @@ void pdie(const char *msg, ...);
  * Выделить память
  * Проверить, было ли выделение удачным
 */
-void* alloc(int size);
+void *alloc(size_t amount, size_t size);
+
+/**
+ * Ввод челого числа в промежутке от min до max (включая)
+ * @param[in] min   Минимальное значение интервала
+ * @param[in] max   Максимальное значение интервала
+ * @returns         Введённое число
+*/
+int input_int(int min, int max);
+
+int get_choise();

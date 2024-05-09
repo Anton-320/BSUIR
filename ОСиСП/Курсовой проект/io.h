@@ -17,15 +17,24 @@ void fs_open(const char *path, int rw);
  * @param[in]   size    Количество байтов для чтения
  * @param[out]  data    Буффер для прочитанных данных
  */
-void fs_read(off_t pos, int size, void *data);
+void fs_read(off_t pos, size_t size, void *data);
 
+/**
+ * Сместиться на offset байтов (с проверкой)
+*/ 
+void ch_seek(off_t offset, int whence);
+
+/**
+ * Прочитать size байтов (с проверкой)
+*/
+ssize_t ch_read(size_t size, void *data);
 
 int fs_test(off_t pos, int size);
 
 /**
- * Записать на устройство в файловую систему
+ * Записать в раздел
 */
-void fs_write(off_t pos, int size, void *data);
+void fs_write(off_t pos, size_t size, void *data);
 
 /**
  * Закрыть устройство / файл с файловой системой

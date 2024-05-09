@@ -3,40 +3,58 @@
 
 #define DIR_NAME_LEN 11
 
+// Биты атрибутов файла
+#define ATTR_NONE 0	    // no attribute bits
+#define ATTR_RO 1	    // read-only
+#define ATTR_HIDDEN 2	// hidden
+#define ATTR_SYS 4	    // system
+#define ATTR_VOLUME 8	// volume label
+#define ATTR_DIR 16	    // directory
+#define ATTR_ARCH 32	// archived
+#define ATTR_LONG_NAME (ATTR_RO | ATTR_HIDDEN | ATTR_SYS | ATTR_VOLUME)     // Атрибут записи длинной директории
+
+
+
+/**
+ * Структура загрузочного сектора
+ * (неполная, т.к. содержит только BPB и несколько значимых полей загрузочного сектора)
+*/
 typedef struct {
 
-    //до смещения 36
+    // До смещения 36
 
     uint8_t  jmpBoot[3];         // Код для перехода к загрузочному коду
     uint8_t  OEMName[8];         // Имя OEM (производителя) системы
     uint16_t bytesPerSector;     // Количество байтов в секторе
     uint8_t  sectorsPerCluster;  // Количество секторов в кластере
     uint16_t resvdSectCount;     // Количество секторов в Reserved Region
-    uint8_t  numFats;           // Количество FAT-таблиц
+    uint8_t  numFats;            // Количество FAT-таблиц
     uint16_t rootEntCnt_16;      // Количество записей в корневом каталоге (только для FAT12/FAT16, для FAT32 должно быть равно 0)
     uint16_t totalSectors_16;    // Общее количество секторов на носителе (только для FAT12/FAT16, для FAT32 должно быть равно 0)
     uint8_t  mediaType;          // Тип носителя информации (диска)
-    uint16_t fatSz_16;           // Количество секторов в одной FAT-таблице (только для FAT12/FAT16, для FAT32 должно быть равно 0)
+    uint16_t fatSz_16;           // Количество секторов, ВЫДЕЛЕННЫХ под одну FAT-таблицу (только для FAT12/FAT16, для FAT32 должно быть равно 0)
     uint16_t sectorsPerTrack;    // Количество секторов на дорожке
-    uint16_t numHeads;              // Количество головок устройства
+    uint16_t numHeads;           // Количество головок устройства
     uint32_t hiddenSectors;      // Количество скрытых секторов перед разделом
     uint32_t totalSectors_32;    // Общее количество секторов на носителе (только для FAT32)
 
-    //после смещения 36
+    // После смещения 36
 
-    uint32_t fatSz_32;           // Количество секторов в одной FAT-таблице (для FAT32)
-    uint16_t extFlags;           // Флаги расширений файловой системы
+    uint32_t fatSz_32;           // Количество секторов, ВЫДЕЛЕННЫХ под одну FAT-таблицу (для FAT32)
+    uint16_t extFlags;           // Флаги файловой системы (по использованию FAT-таблицы)
     uint16_t fsVersion;          // Версия файловой системы
-    uint32_t rootClusterNum;     // Номер кластера корневого каталога (для FAT32)
+    uint32_t rootClusterNum;     // Номер кластера корневого каталога ОТНОСИТЕЛЬНО ПЕРВОГО КЛАСТЕРА DATA REGION (0-й кластер - самый первый кластер в Data Region и т.д.) (для FAT32)
     uint16_t fsInfoSectorNumber; // Номер сектора информации о файловой системе
-    uint16_t bkBootSec;          // Номер резервной копии загрузочного сектора
+    uint16_t bkBootSec;          // Номер сектора в резервной области диска, где хранится копия boot сектора
     uint8_t  reserved[12];       // Зарезервировано
     uint8_t  driveNumber;        // Номер дискового устройства
     uint8_t  reserved1;          // Зарезервировано
     uint8_t  bootSignature;      // Сигнатура загрузочного сектора (0x29)
     uint32_t volumeID;           // Уникальный идентификатор тома
     uint8_t  volumeLabel[11];    // Метка тома (имя)
-    uint8_t  fileSystemType[8];  // Тип файловой системы ("FAT32   ")
+    uint8_t  fileSystemType[8];  // Тип файловой системы ("FAT32   "), [только не по нему определять тип: это для информации] 
+    uint8_t  junk[420];          // Для заполнения пространства
+    uint16_t checkSignature;     // Сигнатура для проверки 0xAA55 (с учётом little endian: sector[510] == 0x55, sector[511] == 0xAA)
 } __attribute__((packed)) BootSector;
 
 typedef struct _filesystem_info_sector_structure {
@@ -64,10 +82,18 @@ typedef struct _directory_entry_structure {
     uint32_t fileSize;              // Размер файла в байтах
 } __attribute__((packed)) DirEntry;
 
-typedef struct _fat_list_node {
-    uint32_t cluster;       // Номер текущего кластера
-    uint32_t nextCluster;  // Номер следующего кластера в цепочке
-} FAT_Entry;
+typedef struct _dir_tree_node {
+    DirEntry this;                  // Информация о текущем файле
+    char* lfn;                      // Long File Name
+    struct _dir_tree_node* parent;  // Родитель
+    struct _dir_tree_node* prev;    // Предыдущий в списке дочерних (от parent) директорий
+    struct _dir_tree_node* next;    // Следующий в списке дочерних (от parent) директорий
+} DirNode;
+
+typedef struct _fat_table {
+    uint32_t* fat;       // Массив записей таблицы
+    uint32_t size;       // Размер (количество элментов)
+} FAT;
 
 typedef struct _int_pair {
     int first;

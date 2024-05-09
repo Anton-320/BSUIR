@@ -1,16 +1,39 @@
 #pragma once
 #include "fs_fun.h"
+#include <curses.h>
+
+/**
+ * Проверка всей файловой системы
+*/
+int check_all();
 
 /**
  * Проверка загрузочного сектора
+ * @returns количество неисправностей
 */
-int check_boot_sector();
+int check_boot_sector(bool print);
 
 /**
- * Вывод статистики о загрузочном секторе
+ * Вывод информации о файловой системе
 */
 void print_filesystem_info();
 
-void check_for_gaps(int fd, const BootSector *bs);
+/**
+ * Проверка FAT таблицы
+ * @param[in] print Выводить ли сообщения об ошибках (true - да, false - нет)
+ * @returns         Общее количество ошибок (циклов, разрывов и т.д.)
+*/
+int check_fat_table(bool print);
 
-PAIR check_fat_table();
+/**
+ * Попытаться найти резервную копию загрузочного сектора.
+ * Результат записывается в статическую переменную bs
+ * @return В случае успеха возвращает смещение нормальной копии относительно начала раздела, иначе -1
+*/
+off_t try_find_boot_sector_copy();
+
+/**
+ * Ищет резервную копию FAT-таблицы, проверяет и записывает в 
+ * @returns true (1), если удалось найти корректную резервную копию FAT-таблицы, иначе false(0)
+*/
+bool try_find_fat_copy();

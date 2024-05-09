@@ -1,13 +1,16 @@
 #include "io.h"
 
-static int fd = 0;
+int fd = 0;		// Файловый дескриптор проверяемого раздела
 
+/**
+ * Открыть раздел с файловой системой (как файл)
+*/
 void fs_open(const char *path, int rw)
 {
 	if ((fd = open(path, rw ? O_RDWR : O_RDONLY)) < 0) {
 		perror("open");
 		exit(6);
-	}   
+	}
 }
 
 /**
@@ -17,7 +20,7 @@ void fs_open(const char *path, int rw)
  * @param[in]   size    Количество байтов для чтения
  * @param[out]  data    Буффер для прочитанных данных
  */
-void fs_read(off_t pos, int size, void *data)
+void fs_read(off_t pos, size_t size, void *data)
 {
 	int got;
 	if (pos > 0) {
@@ -25,9 +28,28 @@ void fs_read(off_t pos, int size, void *data)
 			perror("Read error");
 	}
 	if ((got = read(fd, data, size)) < 0)
-		pdie("Read %d bytes at %lld", size, (long long)pos);
+		pdie("Read %d bytes at %lld error", size, (long long)pos);
 	if (got != size)
 		pdie("Got %d bytes instead of %d at %lld", got, size, (long long)pos);
+}
+
+/**
+ * Сместиться на offset байтов (с проверкой)
+*/ 
+void ch_seek(off_t offset, int whence) {
+	if (lseek(fd, offset, whence) != offset)
+		perror("Read error");
+}
+
+/**
+ * Прочитать size байтов (с проверкой)
+*/
+ssize_t ch_read(size_t size, void *data) {
+	int got = read(fd, data, size);
+	if (got < 0)
+		pdie("Read %d bytes error", size);
+	if (got != size)
+		pdie("Got %d bytes instead of %d", got, size);
 }
 
 /**
@@ -40,22 +62,21 @@ int fs_test(off_t pos, int size)
 
 	if (lseek(fd, pos, 0) != pos)
 	pdie("Seek to %lld", (long long)pos);
-	scratch = alloc(size);
+	scratch = alloc(1, size);
 	okay = read(fd, scratch, size) == size;
 	free(scratch);
 	return okay;
 }
 
-void fs_write(off_t pos, int size, void *data)
+void fs_write(off_t pos, size_t size, void *data)
 {
-	if (lseek(fd, pos, 0) != pos)
+	if (lseek(fd, pos, SEEK_SET) != pos)
 		pdie("Seek to %lld", (long long)pos);
-	
 	int writtenBytesAmount = write(fd, data, size);
 	if (writtenBytesAmount != size)
 		pdie("Wrote %d bytes instead of %d at %lld", writtenBytesAmount, size, (long long)pos);
 	if (writtenBytesAmount < 0)
-		pdie("Write %d bytes at %lld", size, (long long)pos);
+		pdie("Write %d bytes at %lld error", size, (long long)pos);
 }
 
 /**
