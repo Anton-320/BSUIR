@@ -4,14 +4,14 @@
 #define DIR_NAME_LEN 11
 
 // Биты атрибутов файла
-#define ATTR_NONE 0	    // no attribute bits
-#define ATTR_RO 1	    // read-only
-#define ATTR_HIDDEN 2	// hidden
-#define ATTR_SYS 4	    // system
-#define ATTR_VOLUME 8	// volume label
-#define ATTR_DIR 16	    // directory
-#define ATTR_ARCH 32	// archived
-#define ATTR_LONG_NAME (ATTR_RO | ATTR_HIDDEN | ATTR_SYS | ATTR_VOLUME)     // Атрибут записи длинной директории
+#define ATTR_NONE 0	        // no attribute bits
+#define ATTR_RO 0x01	    // read-only
+#define ATTR_HIDDEN 0x02	// hidden
+#define ATTR_SYS 0x04	    // system
+#define ATTR_VOLUME 0x08	// volume label
+#define ATTR_DIR 0x10	    // directory
+#define ATTR_ARCH 0x20	    // archived
+#define ATTR_LFN (ATTR_RO | ATTR_HIDDEN | ATTR_SYS | ATTR_VOLUME)     // Атрибут записи длинной директории
 
 
 
@@ -57,16 +57,6 @@ typedef struct {
     uint16_t checkSignature;     // Сигнатура для проверки 0xAA55 (с учётом little endian: sector[510] == 0x55, sector[511] == 0xAA)
 } __attribute__((packed)) BootSector;
 
-typedef struct _filesystem_info_sector_structure {
-    uint32_t leadSig;		    // Начальная сигнатура для точного определения сектора FSInfo, всегда равен 0x41615252
-    uint8_t reserved1[480];     // Зарезервировано на будущее
-    uint32_t signature;		    // Сигнатура для точного определения положения следующих за ним полей. Всегда равен 0x61417272
-    uint32_t free_clusters;	    // Хранит последнее известное количество свободных кластеров диска. Если равно 0xFFFFFFFF, то количество неизвестно, и должно быть вычислено
-    uint32_t nextCluster;	    // Вспомогательное значение для драйвера FAT. Содержит номер кластера, начиная с которого надо искать свободный кластер (для быстроты)
-    uint8_t reserved2[12];      // Зарезервировано на будущее
-    uint32_t boot_sign;         // Значение 0xAA550000. Это конечная сигнатура для точного определения сектора FSInfo
-} __attribute__ ((packed)) FS_Info;
-
 typedef struct _directory_entry_structure {
     uint8_t  name[DIR_NAME_LEN];    // Имя файла (8 байт) и расширение (3 байта)
     uint8_t  attributes;            // Атрибуты файла
@@ -81,19 +71,6 @@ typedef struct _directory_entry_structure {
     uint16_t firstClusterLow;       // Младшее слово номера первого кластера
     uint32_t fileSize;              // Размер файла в байтах
 } __attribute__((packed)) DirEntry;
-
-typedef struct _dir_tree_node {
-    DirEntry this;                  // Информация о текущем файле
-    char* lfn;                      // Long File Name
-    struct _dir_tree_node* parent;  // Родитель
-    struct _dir_tree_node* prev;    // Предыдущий в списке дочерних (от parent) директорий
-    struct _dir_tree_node* next;    // Следующий в списке дочерних (от parent) директорий
-} DirNode;
-
-typedef struct _fat_table {
-    uint32_t* fat;       // Массив записей таблицы
-    uint32_t size;       // Размер (количество элментов)
-} FAT;
 
 typedef struct _int_pair {
     int first;

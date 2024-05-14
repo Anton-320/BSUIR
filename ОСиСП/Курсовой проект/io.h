@@ -39,4 +39,4 @@ void fs_write(off_t pos, size_t size, void *data);
 /**
  * Закрыть устройство / файл с файловой системой
 */
-void fs_close(int write);
+void fs_close();

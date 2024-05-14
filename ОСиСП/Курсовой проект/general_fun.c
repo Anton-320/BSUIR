@@ -13,6 +13,11 @@ void pdie(const char *msg, ...)
 	exit(1);
 }
 
+/**
+ * Выделить память
+ * Проверить, было ли выделение удачным
+ * Важно! Выделенная память обнулена
+*/
 void* alloc(size_t amount, size_t size)
 {
 	void* this;
@@ -42,4 +47,17 @@ int input_int(int min, int max) {
 		else break;
 	}
 	return result;
+}
+
+/**
+ * Руководство по эксплуатации
+*/
+void usage(const char* progName) {
+	printf("Формат использования команды: %s [-options] full_way\n", progName);
+	printf("Проверяет FAT32 систему на устру=ойстве на наличие ошибок\n");
+	printf("Опции:\n");
+	printf("	-a			Автоматически пытаться чинить файловую систему\n");
+	printf("	-i			Показать информацию про файловую систему (на основе загрузочного сектора)\n");
+	printf("	-t			Вывести дерево каталогов при проверке региона данных\n");
+	printf("	--help		Помощь\n");
 }

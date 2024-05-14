@@ -8,7 +8,7 @@ int fd = 0;		// Файловый дескриптор проверяемого �
 void fs_open(const char *path, int rw)
 {
 	if ((fd = open(path, rw ? O_RDWR : O_RDONLY)) < 0) {
-		perror("open");
+		fprintf(stderr, "Ошибка. Не удалось открыть устройство [^\0]", path);
 		exit(6);
 	}
 }
@@ -82,7 +82,7 @@ void fs_write(off_t pos, size_t size, void *data)
 /**
  * Закрыть раздел
 */
-void fs_close(int write)
+void fs_close()
 {
 	if (close(fd) < 0)
 		pdie("closing filesystem");

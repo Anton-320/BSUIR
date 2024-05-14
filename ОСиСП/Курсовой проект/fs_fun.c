@@ -3,6 +3,7 @@
 */
 
 #include "fs_fun.h"
+#include "lfn.h"
 
 /**
  * Инициализировать структуру BootSector
@@ -59,18 +60,19 @@ void write_boot_sector(const BootSector* bs, off_t offset) {
  * Вычислить смещение таблицы FAT32
  * @param[in]   num   порядковый номер FAT-таблицы, начиная с 0
 */
-inline off_t get_fatOffset(int num, const BootSector* bs) {
+off_t get_fat_offset(int num, const BootSector* bs) {
     return (bs->resvdSectCount * bs->bytesPerSector) + (num * bs->fatSz_32 * bs->bytesPerSector);
 }
 
 /**
  * Прочитать FAT-таблицу в массив (не забудьте потом освободить память!)
+ * Замечание: старшие 4 бита тут не игнорируются, записи переводятся из little endian в формат хоста
  * @param[in]   num   порядковый номер FAT-таблицы, начиная с 0
 */
 uint32_t* read_fat_table(int num, const BootSector* bs) {
     uint32_t entCount = bs->fatSz_32 * bs->bytesPerSector / FAT_RECORD_SIZE;    // Количество записей в FAT-таблице
     uint32_t* result = (uint32_t*)alloc(entCount, sizeof(uint32_t));
-    uint32_t fatOffset = get_fatOffset(num, bs);
+    uint32_t fatOffset = get_fat_offset(num, bs);
     fs_read(fatOffset, entCount * FAT_RECORD_SIZE, result);
     for (uint32_t i = 0; i < entCount; i += 1) {
         result[i] = le32toh(result[i]);     // Перевод из little endian в формат хоста
@@ -78,25 +80,18 @@ uint32_t* read_fat_table(int num, const BootSector* bs) {
     return result;
 }
 
+/**
+ * Записать FAT-таблицу
+*/
 void write_fat_table(int num, uint32_t* fat, uint32_t entCount, const BootSector* bs) {
     for (uint32_t i = 0; i < entCount; i += 1) {
         fat[i] = htole32(fat[i]);           // Перевод из формата хоста в little endian
     }
-    uint32_t fatOffset = get_fatOffset(num, bs);
+    uint32_t fatOffset = get_fat_offset(num, bs);
     fs_write(fatOffset, entCount * FAT_RECORD_SIZE, fat);
 }
 
-int read_dir(DirEntry* dir) {
-    int num = 0;
-    uint8_t tmp = 0;
-    do {
-        if (!ch_read(sizeof(uint8_t), &tmp) || tmp == 0)
-            return num;
-        ch_seek(sizeof(DirEntry) - sizeof(uint8_t), SEEK_CUR);
-        if (tmp != 0xE5 && tmp != 0x05) num += 1;
-    } while (tmp != 0);
-    
-}
+
 
 /**
  * Поиск номера сектора (начиная с 0), с которого начинается кластер, по номеру кластера

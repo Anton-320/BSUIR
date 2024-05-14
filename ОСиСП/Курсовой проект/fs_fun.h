@@ -30,7 +30,7 @@ void write_boot_sector(const BootSector *bs, off_t offset);
  * Вычислить смещение таблицы FAT32
  * @param[in]   num   порядковый номер FAT-таблицы, начиная с 0
 */
-off_t get_fatOffset(int num, const BootSector* bs);
+off_t get_fat_offset(int num, const BootSector* bs);
 
 /**
  * Прочитать FAT-таблицу 

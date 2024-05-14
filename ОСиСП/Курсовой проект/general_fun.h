@@ -16,6 +16,7 @@ void pdie(const char *msg, ...);
 /**
  * Выделить память
  * Проверить, было ли выделение удачным
+ * Важно! Выделенная память обнулена
 */
 void *alloc(size_t amount, size_t size);
 
@@ -27,4 +28,7 @@ void *alloc(size_t amount, size_t size);
 */
 int input_int(int min, int max);
 
-int get_choise();
+/**
+ * Руководство по эксплуатации
+*/
+void usage(const char *progName);
