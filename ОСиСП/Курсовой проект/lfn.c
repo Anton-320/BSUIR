@@ -37,7 +37,7 @@ static int encode_utf8(char* dest, uint16_t* src, int amount) {
  * Скопировать содержимое длинной записи в строку UTF-8
  * @returns Количество байтов, записанных в строку (символ может содержать от 1 до 3 байтов)
 */
-static int copy_lfn_part(char* dst, LfnEnt* lfn) {
+static int copy_lfn_part(char* dst, LfnEntry* lfn) {
     char* initial = dst;
     dst += encode_utf8(dst, (uint16_t*)lfn->name0_4, 5);
     dst += encode_utf8(dst, (uint16_t*)lfn->name5_10, 6);

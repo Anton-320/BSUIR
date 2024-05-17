@@ -55,9 +55,9 @@ int main(int argc, char* argv[]) {
 	}	
 
 	fs_open(argv[argc - 1], 1);
-	int numOfErrors = check_all();
+	check_all();
 	printf("Проверка файловой системы завершена\n");
-
+	fs_close();
 	endwin();
 	return 0;
 }

@@ -3,7 +3,7 @@
 #include "general_fun.h"
 #include "structs.h"
 
-typedef struct _LfnEntry{
+typedef struct _LongFileNameEntry{
     uint8_t  id;			// Порядковый номер в последовательности записей длинных имѐн
     uint8_t  name0_4[10];	// Символы 1-5 длинного имени данного компонента
     uint8_t  attr;		    // Атрибуты – содержит ATTR_LFN
@@ -12,10 +12,10 @@ typedef struct _LfnEntry{
     uint8_t  name5_10[12];	// Символы 6-11 длинного имени в данном компоненте
     uint16_t fstClusLowOff; // Должно быть 0
     uint8_t  name11_12[4];	// Символы 12-13 длинного имени в данном компоненте
-} __attribute__ ((packed)) LfnEnt;
+} __attribute__ ((packed)) LfnEntry;
 
 typedef struct _LfnStackNode{
-    LfnEnt entry;
+    LfnEntry entry;
     struct _LfnStackNode* next;
 } __attribute__ ((packed)) LfnStack;
 

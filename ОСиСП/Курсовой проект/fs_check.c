@@ -83,6 +83,8 @@ int check_all() {
         }
     }
 
+    check_data_region();
+
     free(fat);                      // Освободить память
     
     return bsErrors + fatErrors;
@@ -329,7 +331,7 @@ static void delete_entry_from_dir(off_t lfnOffset, off_t sfnOffset) {
     uint8_t tmp = 0xE5;
     while (lfnOffset < sfnOffset) {
         fs_write(lfnOffset, sizeof(uint8_t), &tmp);
-        lfnOffset += sizeof(LfnEnt);
+        lfnOffset += sizeof(LfnEntry);
     }
     fs_write(sfnOffset, sizeof(uint8_t), &tmp);
 }
@@ -343,9 +345,12 @@ static uint32_t get_first_cluster_num(const DirEntry* sfn) {
 
 /**
  * Начало обработки - первая дочерняя (от корневого каталога) запись
+ * @param[in] offset    Смещение директории (файла с 32-байтными записями)
+ * @param[in] path      Полный путь к директории (для корневого каталога == "/")
+ * @param[in] depth     Глубина в дереве каталогов (для корневой директории == 0)
 */
-static void read_and_check_dir_tree(off_t offset, const char* path) {
-    LfnEnt tmpLfn = {};     // Временная переменная для длинной записи
+static void read_and_check_dir_tree(off_t offset, const char* path, int depth) {
+    LfnEntry tmpLfn = {};     // Временная переменная для длинной записи
     DirEntry shortEntry = {};   // Временная переменная для короткой записи 
     char* fileName = NULL;  // Имя файла
     off_t lfnOffset = 0;    // Для хранения смещения lfn
@@ -353,7 +358,7 @@ static void read_and_check_dir_tree(off_t offset, const char* path) {
     off_t finalOffset = offset + dirSize;                             // Смещение конца директории
 
     for (; offset < finalOffset; offset += sizeof(DirEntry)) {        //  Цикл по записям (коротким) директории
-        fs_read(offset, sizeof(LfnEnt), &tmpLfn);
+        fs_read(offset, sizeof(LfnEntry), &tmpLfn);
 
         if (tmpLfn.id == 0xE5 || tmpLfn.id == 0 || tmpLfn.id == 0x05) {
             offset += sizeof(DirEntry);
@@ -362,7 +367,7 @@ static void read_and_check_dir_tree(off_t offset, const char* path) {
 
         lfnOffset = offset;
         if (tmpLfn.attr & ATTR_LFN && tmpLfn.reserved == 0) {   // Если LFN ("длинная запись")
-            offset += sizeof(LfnEnt);                           // Сместить указатель на одну запись
+            offset += sizeof(LfnEntry);                           // Сместить указатель на одну запись
             LfnStack* top = (LfnStack*)alloc(1, sizeof(LfnStack));  // Вершина стека с длинными записями
             top->entry = tmpLfn;    // Первая длинная запись
             int longEntryCount = 1; // Для подсчёта длинных записей
@@ -370,7 +375,7 @@ static void read_and_check_dir_tree(off_t offset, const char* path) {
             // Цикл по считыванию с устройства в стек длинных записей одной короткой записи
             while (1) {
                 LfnStack* stackNode = (LfnStack*)alloc(1, sizeof(LfnStack));
-                fs_read(offset, sizeof(LfnEnt), &(stackNode->entry));
+                fs_read(offset, sizeof(LfnEntry), &(stackNode->entry));
                 
                 if (stackNode->entry.id == 0xE5 || stackNode->entry.id == 0)
                     pdie("Разрыв в списке длинных записей");
@@ -386,7 +391,7 @@ static void read_and_check_dir_tree(off_t offset, const char* path) {
                     stackNode = NULL;
                     break;                  // Выйти из цикла
                 }
-                offset += sizeof(LfnEnt);   // Шаг считывания записей
+                offset += sizeof(LfnEntry);   // Шаг считывания записей
             }
             fileName = put_name_from_stack(&top, longEntryCount);   // Считывание из стека элементов длинного имени файла
         }
@@ -433,9 +438,15 @@ static void read_and_check_dir_tree(off_t offset, const char* path) {
             }
         }
 
+        if (showFileTree) {
+            rewind(stdout);
+            for (int i = 0; i < depth; i += 1)
+                fputc(' ', stdout);
+            printf("%s\n", fileName);
+        }
+
         if (shortEntry.attributes & ATTR_DIR) {
-            
-            read_and_check_dir_tree(fileFirstClusterNum, fullPath);
+            read_and_check_dir_tree(fileFirstClusterNum, fullPath, depth + 1);
             continue;
         }
         free(fileName);
@@ -444,12 +455,12 @@ static void read_and_check_dir_tree(off_t offset, const char* path) {
 }
 
 /**
- * 
+ * Проверка региона данных
 */
 void check_data_region() {
     dataRegOff = bs.resvdSectCount * bs.bytesPerSector + bs.fatSz_32 * bs.bytesPerSector * bs.numFats;
-    uint32_t rootLba = bs.resvdSectCount + (bs.fatSz_32 * 2) + ((bs.rootClusterNum - 2) * bs.sectorsPerCluster);    // LBA корневой директории
-    
+    off_t rootOffset = dataRegOff + (bs.rootClusterNum - 2) * bs.sectorsPerCluster * bs.bytesPerSector;
+    read_and_check_dir_tree(rootOffset, "/", 0);
 }
 
 /**
