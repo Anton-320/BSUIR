@@ -44,28 +44,13 @@ void ch_seek(off_t offset, int whence) {
 /**
  * Прочитать size байтов (с проверкой)
 */
-ssize_t ch_read(size_t size, void *data) {
+void ch_read(size_t size, void *data) {
 	int got = read(fd, data, size);
 	if (got < 0)
 		pdie("Read %d bytes error", size);
 	if (got != size)
 		pdie("Got %d bytes instead of %d", got, size);
-}
-
-/**
- * 
-*/
-int fs_test(off_t pos, int size)
-{
-	void *scratch;
-	int okay;
-
-	if (lseek(fd, pos, 0) != pos)
-	pdie("Seek to %lld", (long long)pos);
-	scratch = alloc(1, size);
-	okay = read(fd, scratch, size) == size;
-	free(scratch);
-	return okay;
+	
 }
 
 void fs_write(off_t pos, size_t size, void *data)

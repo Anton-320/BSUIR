@@ -1,5 +1,8 @@
 #pragma once
-#include "fs_fun.h"
+#include "general_fun.h"
+#include "structs.h"
+#include "lfn.h"
+#include "io.h"
 #include <curses.h>
 
 uint8_t autoFixOpt = 0;     // Чинить автоматически (1 - да, 0 - нет)
@@ -9,7 +12,7 @@ uint8_t showFileTree = 0;   // Вывести файловое дерево на
 /**
  * Проверка всей файловой системы
 */
-int check_all();
+void check_all();
 
 /**
  * Проверка загрузочного сектора
@@ -30,9 +33,13 @@ void print_filesystem_info();
 int check_fat_table(bool print);
 
 /**
- * Проверка региона данных
+ * Проверка дерева каталогов
+ * Начало обработки - первая дочерняя (от корневого каталога) запись
+ * @param[in] offset    Смещение директории (файла с 32-байтными записями)
+ * @param[in] path      Полный путь к директории (для корневого каталога == "/")
+ * @param[in] depth     Глубина в дереве каталогов (для корневой директории == 0)
 */
-void check_data_region();
+void read_and_check_dir_tree(off_t offset, const char *path, int depth);
 
 /**
  * Попытаться найти резервную копию загрузочного сектора.

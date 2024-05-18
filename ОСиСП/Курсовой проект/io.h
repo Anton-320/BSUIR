@@ -27,7 +27,7 @@ void ch_seek(off_t offset, int whence);
 /**
  * Прочитать size байтов (с проверкой)
 */
-ssize_t ch_read(size_t size, void *data);
+void ch_read(size_t size, void *data);
 
 int fs_test(off_t pos, int size);
 

@@ -1,21 +1,82 @@
 #include "fs_check.h"
-
 #define MAX_FAT_SIZE_BYTES 1073741824
+#define FAT_RECORD_SIZE 4       //Размер записи таблицы FAT
 
-//extern int fd;                  // Файловый дескриптор проверяемого раздела
 static BootSector bs;           // Копия загрузочного сектора (только первые 90 байт)
 static uint32_t* fat;           // FAT-таблица
+static off_t dataRegOff;     // Смещение региона данных
 
+/**
+ * Инициализировать структуру BootSector
+*/
+static void init_boot_sector(off_t offset) {
+    fs_read(offset, sizeof(BootSector), &bs);
+
+    // Перевод многобайтовых чисел (полей) из little-endian в формат хоста (т.е. нашего компьютера)
+    
+    bs.bytesPerSector = le16toh(bs.bytesPerSector);
+    bs.resvdSectCount = le16toh(bs.resvdSectCount);
+    bs.rootEntCnt_16 = le16toh(bs.rootEntCnt_16);
+    bs.totalSectors_16 = le16toh(bs.totalSectors_16);
+    bs.fatSz_16 = le16toh(bs.fatSz_16);
+    bs.sectorsPerTrack = le16toh(bs.sectorsPerTrack);
+    bs.numHeads = le16toh(bs.numHeads);
+    bs.hiddenSectors = le32toh(bs.hiddenSectors);
+    bs.totalSectors_32 = le32toh(bs.totalSectors_32);
+    bs.fatSz_32 = le32toh(bs.fatSz_32);
+    bs.extFlags = le16toh(bs.extFlags);
+    bs.fsVersion = le16toh(bs.fsVersion);
+    bs.rootClusterNum = le32toh(bs.rootClusterNum);
+    bs.fsInfoSectorNumber = le16toh(bs.fsInfoSectorNumber);
+    bs.bkBootSec = le16toh(bs.bkBootSec);
+    bs.volumeID = le32toh(bs.volumeID);
+    bs.checkSignature = le16toh(bs.checkSignature);
+}
+
+/**
+ * Вычислить смещение таблицы FAT32
+ * @param[in]   num   порядковый номер FAT-таблицы, начиная с 0
+*/
+static off_t get_fat_offset(int num) {
+    return (bs.resvdSectCount * bs.bytesPerSector) + (num * bs.fatSz_32 * bs.bytesPerSector);
+}
+
+/**
+ * Прочитать FAT-таблицу в массив (не забудьте потом освободить память!)
+ * Замечание: старшие 4 бита тут не игнорируются, записи переводятся из little endian в формат хоста
+ * @param[in]   num   порядковый номер FAT-таблицы, начиная с 0
+*/
+static uint32_t* read_fat_table(int num) {
+    uint32_t entCount = bs.fatSz_32 * bs.bytesPerSector / FAT_RECORD_SIZE;    // Количество записей в FAT-таблице
+    uint32_t* result = (uint32_t*)alloc(entCount, sizeof(uint32_t));
+    uint32_t fatOffset = get_fat_offset(num);
+    fs_read(fatOffset, entCount * FAT_RECORD_SIZE, result);
+    for (uint32_t i = 0; i < entCount; i += 1) {
+        result[i] = le32toh(result[i]);     // Перевод из little endian в формат хоста
+    }
+    return result;
+}
+
+/**
+ * Записать FAT-таблицу
+*/
+void write_fat_table(int num, uint32_t entCount) {
+    for (uint32_t i = 0; i < entCount; i += 1) {
+        fat[i] = htole32(fat[i]);           // Перевод из формата хоста в little endian
+    }
+    uint32_t fatOffset = get_fat_offset(num);
+    fs_write(fatOffset, entCount * FAT_RECORD_SIZE, fat);
+}
 
 /**
  * Проверка всей файловой системы
 */
-int check_all() {
+void check_all() {
     int bsErrors = 0;
     int fatErrors = 0;
 
     // Проверка загрузочного сектора
-    bs = init_boot_sector(0);    
+    init_boot_sector(0);    
     bsErrors = check_boot_sector(true);
     if (bsErrors > 0) {
         if (!autoFixOpt) {
@@ -27,7 +88,7 @@ int check_all() {
             off_t copyOffset = try_find_boot_sector_copy();
             if (copyOffset == -1) {   // Если не получилось найти копию загрузочного сектора
                 printf("Не удалось обнаружить копию загрузочного сектора. Дальнейшая проверка файловой системы невозможна\n");
-                return bsErrors;
+                return;
             }
             else {                    // Если удалось найти резервную копию загрузочного сектора
                 // Перезапись всего загрузочного сектора
@@ -40,7 +101,7 @@ int check_all() {
         }
         else {
             printf("Завершение работы утилиты\n");
-            return bsErrors;
+            return;
         }
     }
 
@@ -48,10 +109,10 @@ int check_all() {
         print_filesystem_info();
 
     // FAT-таблица (чтение)
-    if (bs.extFlags & 0x0080)                               // Если 7-й бит == 1 (активна 1 FAT)
-        fat = read_fat_table((bs.extFlags & 0x000F), &bs); 
+    if (bs.extFlags & 0x0080)                          // Если 7-й бит == 1 (активна 1 FAT)
+        fat = read_fat_table((bs.extFlags & 0x000F)); 
     else
-        fat = read_fat_table(0, &bs);                       // Если включено зеркалирование
+        fat = read_fat_table(0);                       // Если включено зеркалирование
 
     //Проверка FAT-таблицы
     fatErrors = check_fat_table(true);
@@ -64,11 +125,11 @@ int check_all() {
         if (autoFixOpt || input_int(1, 2) == 1) {                 // Если пользователь выбирает попытку восстановления
             if (!try_find_fat_copy()) {             // Если не получилось найти копию FAT-таблицы
                 printf("Не удалось найти резервную копию основной FAT-таблицы. Дальнейшая проверка файловой системы невозможна\n");
-                return fatErrors;
+                return;
             }
             else {                                  // Если получилось найти копию FAT-таблицы
                 // Перезапись FAT-таблицы
-                write_fat_table(0, fat, bs.fatSz_32 * bs.bytesPerSector / FAT_RECORD_SIZE, &bs);
+                write_fat_table(0, bs.fatSz_32 * bs.bytesPerSector / FAT_RECORD_SIZE);
                 bs.extFlags = 0x0080;               // Записать в флаги 0b 0000 0000 1000 0000 (выключить зеркалирование и активная таблица - 0)
                 uint16_t temp = htole16(bs.extFlags);
                 fs_write(40, sizeof(temp), &temp);  // 40 - смещение поля extFlags в boot sector
@@ -79,15 +140,17 @@ int check_all() {
         }
         else {
             printf("Завершение работы утилиты\n");
-            return fatErrors;
+            return;
         }
     }
 
-    check_data_region();
+    dataRegOff = bs.resvdSectCount * bs.bytesPerSector + bs.fatSz_32 * bs.bytesPerSector * bs.numFats;
+    off_t rootOffset = dataRegOff + (bs.rootClusterNum - 2) * bs.sectorsPerCluster * bs.bytesPerSector;
+    read_and_check_dir_tree(rootOffset, "/", 0);            // Проверить регион данных
 
     free(fat);                      // Освободить память
     
-    return bsErrors + fatErrors;
+    return;
 }
 
 /**
@@ -284,7 +347,7 @@ int check_fat_table(bool print) {
                     }
                     if (autoFixOpt || input_int(1, 2) == 1) {
                         fat[j] = 0x0FFFFFFF;
-                        fs_write(get_fat_offset(0, &bs) + FAT_RECORD_SIZE * j, FAT_RECORD_SIZE, (fat + j));
+                        fs_write(get_fat_offset(0) + FAT_RECORD_SIZE * j, FAT_RECORD_SIZE, (fat + j));
                     }
                 }
                 gaps += 1;
@@ -300,7 +363,7 @@ int check_fat_table(bool print) {
                     }
                     if (autoFixOpt || input_int(1, 2) == 1) {
                         fat[j] = 0x0FFFFFFF;
-                        fs_write(get_fat_offset(0, &bs) + FAT_RECORD_SIZE * j, FAT_RECORD_SIZE, (fat + j));
+                        fs_write(get_fat_offset(0) + FAT_RECORD_SIZE * j, FAT_RECORD_SIZE, (fat + j));
                     }
                 }
                 cycles += 1;
@@ -311,10 +374,6 @@ int check_fat_table(bool print) {
     free(visitedClusters);  // Освободить память
     return gaps + cycles;
 }
-
-
-
-static off_t dataRegOff;     // Смещение региона данных
 
 /**
  * Размер директории в кластерах
@@ -337,19 +396,20 @@ static void delete_entry_from_dir(off_t lfnOffset, off_t sfnOffset) {
 }
 
 /**
- * Получить номер первого кластера файла в регионе данных
+ * Получить номер первого кластера файла в регионе данных из записи директории
 */
 static uint32_t get_first_cluster_num(const DirEntry* sfn) {
     return ((sfn->firstClusterHigh * 65536) + sfn->firstClusterLow);
 }
 
 /**
+ * Проверка дерева каталогов
  * Начало обработки - первая дочерняя (от корневого каталога) запись
  * @param[in] offset    Смещение директории (файла с 32-байтными записями)
  * @param[in] path      Полный путь к директории (для корневого каталога == "/")
  * @param[in] depth     Глубина в дереве каталогов (для корневой директории == 0)
 */
-static void read_and_check_dir_tree(off_t offset, const char* path, int depth) {
+void read_and_check_dir_tree(off_t offset, const char* path, int depth) {
     LfnEntry tmpLfn = {};     // Временная переменная для длинной записи
     DirEntry shortEntry = {};   // Временная переменная для короткой записи 
     char* fileName = NULL;  // Имя файла
@@ -428,7 +488,7 @@ static void read_and_check_dir_tree(off_t offset, const char* path, int depth) {
             switch(option) {
                 case 1: {
                     fat[fileFirstClusterNum + 2] = 0x0FFFFFFF;
-                    fs_write(lfnOffset, get_fat_offset(0, &bs) + fileFirstClusterNum * 4 + 2, (fat + fileFirstClusterNum + 2));
+                    fs_write(lfnOffset, get_fat_offset(0) + fileFirstClusterNum * 4 + 2, (fat + fileFirstClusterNum + 2));
                     break;
                 }
                 case 2: {
@@ -455,15 +515,6 @@ static void read_and_check_dir_tree(off_t offset, const char* path, int depth) {
 }
 
 /**
- * Проверка региона данных
-*/
-void check_data_region() {
-    dataRegOff = bs.resvdSectCount * bs.bytesPerSector + bs.fatSz_32 * bs.bytesPerSector * bs.numFats;
-    off_t rootOffset = dataRegOff + (bs.rootClusterNum - 2) * bs.sectorsPerCluster * bs.bytesPerSector;
-    read_and_check_dir_tree(rootOffset, "/", 0);
-}
-
-/**
  * Попытаться найти резервную копию загрузочного сектора.
  * Результат записывается в статическую переменную bs
  * @return В случае успеха возвращает смещение нормальной копии относительно начала раздела, иначе -1
@@ -473,30 +524,30 @@ off_t try_find_boot_sector_copy() {
     // Если поле количество байтов в секторе не испорчено и соответствует спецификации
     if (bs.bytesPerSector == 512 || bs.bytesPerSector == 1024 || bs.bytesPerSector == 2048 || bs.bytesPerSector == 4096) {
         if (bs.bkBootSec > 0) {                    // Номер сектора, где хранится копия boot сектора не испорчен
-            bs = init_boot_sector(bs.bkBootSec * bs.bytesPerSector);
+            init_boot_sector(bs.bkBootSec * bs.bytesPerSector);
             if (!check_boot_sector(false))         // Если ошибок нет в прочитанном boot sector
                 return bs.bkBootSec * bs.bytesPerSector;
 
             // 6 - номер сектора в резервной области диска, где хранится копия boot сектора согласно спецификации (и на практике)
-            bs = init_boot_sector(6 * bs.bytesPerSector);      
+            init_boot_sector(6 * bs.bytesPerSector);      
             if (!check_boot_sector(false))                     // Если ошибок нет в прочитанном boot sector
                 return 6 * bs.bytesPerSector;
             
             // 512 - количество байт в секторе (которое чаще всего используется)
-            bs = init_boot_sector(bs.bkBootSec * 512);      
+            init_boot_sector(bs.bkBootSec * 512);      
             if (!check_boot_sector(false))                     // Если ошибок нет в прочитанном boot sector
                 return bs.bkBootSec * 512;
 
-            bs = init_boot_sector(6 * 512);
+            init_boot_sector(6 * 512);
             if (!check_boot_sector(false))
                 return 6 * 512;
         }
         else {
-            bs = init_boot_sector(6 * bs.bytesPerSector);
+            init_boot_sector(6 * bs.bytesPerSector);
             if (!check_boot_sector(false))                     // Если ошибок нет в прочитанном boot sector
                 return 6 * bs.bytesPerSector;
         
-            bs = init_boot_sector(6 * 512);
+            init_boot_sector(6 * 512);
             if (!check_boot_sector(false))                     // Если ошибок нет в прочитанном boot sector
                 return 6 * 512;
         }
@@ -504,16 +555,16 @@ off_t try_find_boot_sector_copy() {
     else {
         if (bs.bkBootSec > 0) {
             // 512 - количество байт в секторе (которое чаще всего используется)
-            bs = init_boot_sector(bs.bkBootSec * 512);      
+            init_boot_sector(bs.bkBootSec * 512);      
             if (!check_boot_sector(false))                     // Если ошибок нет в прочитанном boot sector
                 return bs.bkBootSec * 512;
 
-            bs = init_boot_sector(6 * 512);
+            init_boot_sector(6 * 512);
             if (!check_boot_sector(false))
                 return 6 * 512;
         }
         else {
-            bs = init_boot_sector(6 * 512);
+            init_boot_sector(6 * 512);
             if (!check_boot_sector(false))                     // Если ошибок нет в прочитанном boot sector
                 return 6 * 512;        
         }
@@ -541,8 +592,7 @@ bool try_find_fat_copy() {
     for (int i = 0; i < 8; i += 1) {
         if (i == checkedFatNum)
             continue;
-
-        fs_read(get_fat_offset(i, &bs), bs.fatSz_32, fat);    // Считываем (предполагаемую) таблицу FAT в буфер fat (размер fat не меняем, т.к. boot sector правильный), не read_fat_table(), чтобы без лишнего выделения паямяти
+        fs_read(get_fat_offset(i), bs.fatSz_32, fat);    // Считываем (предполагаемую) таблицу FAT в буфер fat (размер fat не меняем, т.к. boot sector правильный), не read_fat_table(), чтобы без лишнего выделения паямяти
         if (!check_fat_table(false)) // Если нет ошибок
             return true;
     }
