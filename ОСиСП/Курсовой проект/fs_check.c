@@ -45,16 +45,14 @@ static off_t get_fat_offset(int num) {
  * Прочитать FAT-таблицу в массив (не забудьте потом освободить память!)
  * Замечание: старшие 4 бита тут не игнорируются, записи переводятся из little endian в формат хоста
  * @param[in]   num   порядковый номер FAT-таблицы, начиная с 0
+ * @param[in]   _fatEntCount    Количество записей таблицы FAT
 */
-static uint32_t* read_fat_table(int num) {
-    uint32_t entCount = bs.fatSz_32 * bs.bytesPerSector / FAT_RECORD_SIZE;    // Количество записей в FAT-таблице
-    uint32_t* result = (uint32_t*)alloc(entCount, sizeof(uint32_t));
+static void read_fat_table(int num, uint32_t _fatEntCount) {
     uint32_t fatOffset = get_fat_offset(num);
-    fs_read(fatOffset, entCount * FAT_RECORD_SIZE, result);
-    for (uint32_t i = 0; i < entCount; i += 1) {
-        result[i] = le32toh(result[i]);     // Перевод из little endian в формат хоста
+    fs_read(fatOffset, _fatEntCount * FAT_RECORD_SIZE, fat);
+    for (uint32_t i = 0; i < _fatEntCount; i += 1) {
+        fat[i] = le32toh(fat[i]);     // Перевод из little endian в формат хоста
     }
-    return result;
 }
 
 /**
@@ -109,10 +107,12 @@ void check_all() {
         print_filesystem_info();
 
     // FAT-таблица (чтение)
+    uint32_t fatEntCount = bs.fatSz_32 * bs.bytesPerSector / FAT_RECORD_SIZE; // Количество
+    fat = (uint32_t*)alloc(fatEntCount, FAT_RECORD_SIZE);
     if (bs.extFlags & 0x0080)                          // Если 7-й бит == 1 (активна 1 FAT)
-        fat = read_fat_table((bs.extFlags & 0x000F)); 
+        read_fat_table((bs.extFlags & 0x000F), fatEntCount); 
     else
-        fat = read_fat_table(0);                       // Если включено зеркалирование
+        read_fat_table(0, fatEntCount);                       // Если включено зеркалирование
 
     //Проверка FAT-таблицы
     fatErrors = check_fat_table(true);
@@ -592,7 +592,7 @@ bool try_find_fat_copy() {
     for (int i = 0; i < 8; i += 1) {
         if (i == checkedFatNum)
             continue;
-        fs_read(get_fat_offset(i), bs.fatSz_32, fat);    // Считываем (предполагаемую) таблицу FAT в буфер fat (размер fat не меняем, т.к. boot sector правильный), не read_fat_table(), чтобы без лишнего выделения паямяти
+        read_fat_table(i, bs.fatSz_32 * bs.bytesPerSector / FAT_RECORD_SIZE);    // Считываем (предполагаемую) таблицу FAT в буфер fat (размер fat не меняем, т.к. boot sector правильный), не read_fat_table(), чтобы без лишнего выделения паямяти
         if (!check_fat_table(false)) // Если нет ошибок
             return true;
     }
