@@ -5,7 +5,6 @@
 #include "io.h"
 #include <curses.h>
 
-uint8_t autoFixOpt = 0;     // Чинить автоматически (1 - да, 0 - нет)
 uint8_t viewInfoOpt = 0;    // Показать информацию о ФС
 uint8_t showFileTree = 0;   // Вывести файловое дерево на экран
 
@@ -49,7 +48,7 @@ void read_and_check_dir_tree(off_t offset, const char *path, int depth);
 off_t try_find_boot_sector_copy();
 
 /**
- * Ищет резервную копию FAT-таблицы, проверяет и записывает в 
+ * Ищет резервную копию FAT-таблицы, проверяет и записывает в буфер fat (статическая переменная)
  * @returns true (1), если удалось найти корректную резервную копию FAT-таблицы, иначе false(0)
 */
 bool try_find_fat_copy();

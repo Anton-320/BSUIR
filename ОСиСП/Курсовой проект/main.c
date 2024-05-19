@@ -7,7 +7,6 @@
 #include <getopt.h>
 #define OPTION_HELP 1000
 
-extern uint8_t autoFixOpt;
 extern uint8_t viewInfoOpt;
 extern uint8_t showFileTree;
 
@@ -27,13 +26,9 @@ int main(int argc, char* argv[]) {
 	}
 
 	int opt = 0;
-	while((opt = getopt_long(argc, argv, "ait", option, NULL)) != -1) {
+	while((opt = getopt_long(argc, argv, "it", option, NULL)) != -1) {
 		switch (opt)
 		{
-		case 'a': {
-			autoFixOpt = 1;
-			break;
-		}
 		case 'i': {
 			viewInfoOpt = 1;
 			break;

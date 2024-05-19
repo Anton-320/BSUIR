@@ -76,24 +76,26 @@ void check_all() {
     init_boot_sector(0);    
     foundErrors = check_boot_sector(true);
     if (foundErrors > 0) {
-        if (!autoFixOpt) {
-            printf("При проверке загрузочного сектора найдено %d ошибок.\n", foundErrors);
-            printf("1 - Попытаться восстановить загрузочный сектор из резервной копии\n"
-                "2 - Завершить работу утилиты\n");
-        }
-        if (autoFixOpt || input_int(1, 2) == 1) {               // Если пользователь выбирает попытку восстановления,
+        printf("При проверке загрузочного сектора найдено %d ошибок.\n", foundErrors);
+        printf("1 - Попытаться восстановить загрузочный сектор из резервной копии\n"
+            "2 - Завершить работу утилиты\n");
+        if (input_int(1, 2) == 1) {               // Если пользователь выбирает попытку восстановления,
             off_t copyOffset = try_find_boot_sector_copy();
             if (copyOffset == -1) {   // Если не получилось найти копию загрузочного сектора
                 printf("Не удалось обнаружить копию загрузочного сектора. Дальнейшая проверка файловой системы невозможна\n");
                 return;
             }
             else {                    // Если удалось найти резервную копию загрузочного сектора
-                // Перезапись всего загрузочного сектора
-                uint8_t* buffer = (uint8_t*)alloc(bs.bytesPerSector, sizeof(uint8_t));
-                fs_read(copyOffset, bs.bytesPerSector, buffer);
-                fs_write(0, bs.bytesPerSector, buffer);
-                free(buffer);
-                printf("Загрузочный сектор восстановлен\n");
+                printf("Удалось найти резервную копию загрузочного сектора, которая прошла проверку на отсуствие недопустимых значений\n");
+                printf("1 - Перезаписать загрузочный сектор из найденной резервной копии\n");
+                printf("2 - Оставить как есть и не перезаписывать\n");            
+                if (input_int(1,2) == 1) { // Перезапись всего загрузочного сектора
+                    uint8_t* buffer = (uint8_t*)alloc(bs.bytesPerSector, sizeof(uint8_t));
+                    fs_read(copyOffset, bs.bytesPerSector, buffer);
+                    fs_write(0, bs.bytesPerSector, buffer);
+                    free(buffer);
+                    printf("Загрузочный сектор перезаписан из резервной копии\n");
+                }
             }
         }
         else {
@@ -116,25 +118,29 @@ void check_all() {
     //Проверка FAT-таблицы
     foundErrors = check_fat_table(true);
     if (foundErrors > 0) {
-        if (!autoFixOpt) {
-            printf("Найдено %d ошибок при проверке FAT-таблицы.\n", foundErrors);
-            printf("1 - Попытаться восстановить загрузочный сектор из резервной копии\n"
-                "2 - Завершить работу утилиты\n");
-        }
-        if (autoFixOpt || input_int(1, 2) == 1) {                 // Если пользователь выбирает попытку восстановления
+       
+        printf("Найдено %d ошибок при проверке FAT-таблицы.\nМожно попробовать восстановить таблицу FAT из резервной копии\n", foundErrors);
+        printf("1 - Попытаться найти резервную копию таблицы FAT\n"
+            "2 - Завершить работу утилиты\n");
+        if (input_int(1, 2) == 1) {                 // Если пользователь выбирает попытку восстановления
             if (!try_find_fat_copy()) {             // Если не получилось найти копию FAT-таблицы
                 printf("Не удалось найти резервную копию основной FAT-таблицы. Дальнейшая проверка файловой системы невозможна\n");
                 return;
             }
             else {                                  // Если получилось найти копию FAT-таблицы
-                // Перезапись FAT-таблицы
-                write_fat_table(0, bs.fatSz_32 * bs.bytesPerSector / FAT_RECORD_SIZE);
-                bs.extFlags = 0x0080;               // Записать в флаги 0b 0000 0000 1000 0000 (выключить зеркалирование и активная таблица - 0)
-                uint16_t temp = htole16(bs.extFlags);
-                fs_write(40, sizeof(temp), &temp);  // 40 - смещение поля extFlags в boot sector
-                fs_write(bs.bkBootSec * bs.bytesPerSector + 40, sizeof(temp), &temp);
+                printf("Найдена резервная копия таблицы FAT.\n"
+                    "1 - Перезаписать резервную таблицу на место основной\n"
+                    "2 - Оставить как есть и не перезаписывать\n");
+                
+                if (input_int(1, 2)) {                             // Перезапись FAT-таблицы
+                    write_fat_table(0, bs.fatSz_32 * bs.bytesPerSector / FAT_RECORD_SIZE);
+                    bs.extFlags = 0x0080;               // Записать в флаги 0b 0000 0000 1000 0000 (выключить зеркалирование и активная таблица - 0)
+                    uint16_t temp = htole16(bs.extFlags);
+                    fs_write(40, sizeof(temp), &temp);  // 40 - смещение поля extFlags в boot sector
+                    fs_write(bs.bkBootSec * bs.bytesPerSector + 40, sizeof(temp), &temp);
 
-                printf("FAT-таблица восстановлена\n");
+                    printf("FAT-таблица перезаписана\n");
+                }
             }
         }
         else {
@@ -250,18 +256,14 @@ int check_boot_sector(bool print)
     if (bs.checkSignature != 0xAA55) {
         if (print) {
             fprintf(stdout, "Неисправность в загрузочном секторе (BIOS Parameter Block) по смещению 510: "
-                "По данному смещению должна располагаться сигнатура 0xAA55\n");
-            if (autoFixOpt) {
-                printf("1 - Добавить сигнатуру 0xAA55 по смещению 510\n");
-                printf("2 - Оставить как есть\n");
-            }
-            if (autoFixOpt || input_int(1, 2) == 1) {
+                "По данному смещению должна располагаться сигнатура 0xAA55\n");            
+            printf("1 - Добавить сигнатуру 0xAA55 по смещению 510\n");
+            printf("2 - Оставить как есть\n");
+            if (input_int(1, 2) == 1) {
                 bs.checkSignature = 0xAA55;
             }
-            else errors += 1;
         }
-        else
-            errors += 1;
+        errors += 1;
     }
 
     return errors;
@@ -340,11 +342,10 @@ int check_fat_table(bool print) {
                         printf("Кластер %u является пустым кластером (равен 0), что недопустимо в цепочке кластеров\n", j);
                     else
                         printf("Кластер %u указывает на значение %u, которое находится за пределами FAT\n", j, fat[j] & 0x0FFFFFFF);
-                    if (!autoFixOpt) {
-                        printf("1 - Пометить кластер %u значением EOC\n", j);
-                        printf("2 - Оставить как есть\n");
-                    }
-                    if (autoFixOpt || input_int(1, 2) == 1) {
+                    
+                    printf("1 - Пометить кластер %u значением EOC\n", j);
+                    printf("2 - Оставить как есть\n");
+                    if (input_int(1, 2) == 1) {
                         fat[j] = 0x0FFFFFFF;
                         fs_write(get_fat_offset(0) + FAT_RECORD_SIZE * j, FAT_RECORD_SIZE, (fat + j));
                     }
@@ -356,11 +357,9 @@ int check_fat_table(bool print) {
                 if (print) {
                     printf("Неисправность в FAT: Обнаружен цикл в цепочке кластеров\n"
                         "Кластер %u указывает на кластер %u, который находится перед кластером %u или в другой цепочке кластеров\n", j, fat[j], j);
-                    if (!autoFixOpt) {
-                        printf("1 - Пометить кластер %u значением EOC\n", j);
-                        printf("2 - Оставить как есть\n");
-                    }
-                    if (autoFixOpt || input_int(1, 2) == 1) {
+                    printf("1 - Пометить кластер %u значением EOC\n", j);
+                    printf("2 - Оставить как есть\n");
+                    if (input_int(1, 2) == 1) {
                         fat[j] = 0x0FFFFFFF;
                         fs_write(get_fat_offset(0) + FAT_RECORD_SIZE * j, FAT_RECORD_SIZE, (fat + j));
                     }
@@ -385,6 +384,9 @@ static int get_dir_size(off_t offset) {
     return counter;
 }
 
+/**
+ * Удалить записи одного файла из директории
+*/
 static void delete_entry_from_dir(off_t lfnOffset, off_t sfnOffset) {
     uint8_t tmp = 0xE5;
     while (lfnOffset < sfnOffset) {
@@ -409,10 +411,10 @@ static uint32_t get_first_cluster_num(const DirEntry* sfn) {
  * @param[in] depth     Глубина в дереве каталогов (для корневой директории == 0)
 */
 void read_and_check_dir_tree(off_t offset, const char* path, int depth) {
-    LfnEntry tmpLfn = {};     // Временная переменная для длинной записи
+    LfnEntry tmpLfn = {};       // Временная переменная для длинной записи
     DirEntry shortEntry = {};   // Временная переменная для короткой записи 
-    char* fileName = NULL;  // Имя файла
-    off_t lfnOffset = 0;    // Для хранения смещения lfn
+    char* fileName = NULL;      // Имя файла
+    off_t lfnOffset = 0;        // Для хранения смещения lfn
     off_t dirSize = get_dir_size(offset) * bs.sectorsPerCluster * bs.bytesPerSector;
     off_t finalOffset = offset + dirSize;                             // Смещение конца директории
 
@@ -426,7 +428,7 @@ void read_and_check_dir_tree(off_t offset, const char* path, int depth) {
 
         lfnOffset = offset;
         if (tmpLfn.attr & ATTR_LFN && tmpLfn.reserved == 0) {   // Если LFN ("длинная запись")
-            offset += sizeof(LfnEntry);                           // Сместить указатель на одну запись
+            offset += sizeof(LfnEntry);                             // Сместить указатель на одну запись
             LfnStack* top = (LfnStack*)alloc(1, sizeof(LfnStack));  // Вершина стека с длинными записями
             top->entry = tmpLfn;    // Первая длинная запись
             int longEntryCount = 1; // Для подсчёта длинных записей
@@ -450,7 +452,7 @@ void read_and_check_dir_tree(off_t offset, const char* path, int depth) {
                     stackNode = NULL;
                     break;                  // Выйти из цикла
                 }
-                offset += sizeof(LfnEntry);   // Шаг считывания записей
+                offset += sizeof(LfnEntry); // Шаг считывания записей
             }
             fileName = put_name_from_stack(&top, longEntryCount);   // Считывание из стека элементов длинного имени файла
         }
@@ -469,11 +471,9 @@ void read_and_check_dir_tree(off_t offset, const char* path, int depth) {
         uint32_t fileFirstClusterVal = fat[fileFirstClusterNum] & 0x0FFFFFFF;   // Считать значение
         if (fileFirstClusterVal == 0x0FFFFFF7) {
             fprintf(stderr, "Неисправность в Data Region: файл %s лежит в BAD CLUSTER\n", fileName);
-            if (!autoFixOpt) {
-                printf("1 - Удалить эту запись из директории\n");
-                printf("2 - Оставить как есть\n");
-            }
-            if (autoFixOpt || input_int(1,2) == 1) {
+            printf("1 - Удалить эту запись из директории\n");
+            printf("2 - Оставить как есть\n");
+            if (input_int(1,2) == 1) {
                 delete_entry_from_dir(lfnOffset, offset);
             }
             
