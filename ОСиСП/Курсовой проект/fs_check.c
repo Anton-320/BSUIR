@@ -47,7 +47,7 @@ static off_t get_fat_offset(int num) {
  * @param[in]   num   порядковый номер FAT-таблицы, начиная с 0
  * @param[in]   _fatEntCount    Количество записей таблицы FAT
 */
-static void read_fat_table(int num, uint32_t _fatEntCount) {
+static void read_fat(int num, uint32_t _fatEntCount) {
     uint32_t fatOffset = get_fat_offset(num);
     fs_read(fatOffset, _fatEntCount * FAT_RECORD_SIZE, fat);
     for (uint32_t i = 0; i < _fatEntCount; i += 1) {
@@ -58,7 +58,7 @@ static void read_fat_table(int num, uint32_t _fatEntCount) {
 /**
  * Записать FAT-таблицу
 */
-void write_fat_table(int num, uint32_t entCount) {
+void write_fat(int num, uint32_t entCount) {
     for (uint32_t i = 0; i < entCount; i += 1) {
         fat[i] = htole32(fat[i]);           // Перевод из формата хоста в little endian
     }
@@ -111,9 +111,9 @@ void check_all() {
     uint32_t fatEntCount = bs.fatSz_32 * bs.bytesPerSector / FAT_RECORD_SIZE; // Количество
     fat = (uint32_t*)alloc(fatEntCount, FAT_RECORD_SIZE);
     if (bs.extFlags & 0x0080)                          // Если 7-й бит == 1 (активна 1 FAT)
-        read_fat_table((bs.extFlags & 0x000F), fatEntCount); 
+        read_fat((bs.extFlags & 0x000F), fatEntCount); 
     else
-        read_fat_table(0, fatEntCount);                       // Если включено зеркалирование
+        read_fat(0, fatEntCount);                       // Если включено зеркалирование
 
     //Проверка FAT-таблицы
     foundErrors = check_fat_table(true);
@@ -133,7 +133,7 @@ void check_all() {
                     "2 - Оставить как есть и не перезаписывать\n");
                 
                 if (input_int(1, 2)) {                             // Перезапись FAT-таблицы
-                    write_fat_table(0, bs.fatSz_32 * bs.bytesPerSector / FAT_RECORD_SIZE);
+                    write_fat(0, bs.fatSz_32 * bs.bytesPerSector / FAT_RECORD_SIZE);
                     bs.extFlags = 0x0080;               // Записать в флаги 0b 0000 0000 1000 0000 (выключить зеркалирование и активная таблица - 0)
                     uint16_t temp = htole16(bs.extFlags);
                     fs_write(40, sizeof(temp), &temp);  // 40 - смещение поля extFlags в boot sector
@@ -591,7 +591,7 @@ bool try_find_fat_copy() {
     for (int i = 0; i < 8; i += 1) {
         if (i == checkedFatNum)
             continue;
-        read_fat_table(i, bs.fatSz_32 * bs.bytesPerSector / FAT_RECORD_SIZE);    // Считываем (предполагаемую) таблицу FAT в буфер fat (размер fat не меняем, т.к. boot sector правильный), не read_fat_table(), чтобы без лишнего выделения паямяти
+        read_fat(i, bs.fatSz_32 * bs.bytesPerSector / FAT_RECORD_SIZE);    // Считываем (предполагаемую) таблицу FAT в буфер fat (размер fat не меняем, т.к. boot sector правильный), не read_fat(), чтобы без лишнего выделения паямяти
         if (!check_fat_table(false)) // Если нет ошибок
             return true;
     }
