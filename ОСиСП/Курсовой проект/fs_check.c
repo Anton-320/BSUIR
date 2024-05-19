@@ -70,15 +70,14 @@ void write_fat_table(int num, uint32_t entCount) {
  * Проверка всей файловой системы
 */
 void check_all() {
-    int bsErrors = 0;
-    int fatErrors = 0;
+    int foundErrors = 0;
 
     // Проверка загрузочного сектора
     init_boot_sector(0);    
-    bsErrors = check_boot_sector(true);
-    if (bsErrors > 0) {
+    foundErrors = check_boot_sector(true);
+    if (foundErrors > 0) {
         if (!autoFixOpt) {
-            printf("При проверке загрузочного сектора найдено %d ошибок.\n", bsErrors);
+            printf("При проверке загрузочного сектора найдено %d ошибок.\n", foundErrors);
             printf("1 - Попытаться восстановить загрузочный сектор из резервной копии\n"
                 "2 - Завершить работу утилиты\n");
         }
@@ -115,10 +114,10 @@ void check_all() {
         read_fat_table(0, fatEntCount);                       // Если включено зеркалирование
 
     //Проверка FAT-таблицы
-    fatErrors = check_fat_table(true);
-    if (fatErrors > 0) {
+    foundErrors = check_fat_table(true);
+    if (foundErrors > 0) {
         if (!autoFixOpt) {
-            printf("Найдено %d ошибок при проверке FAT-таблицы.\n", fatErrors);
+            printf("Найдено %d ошибок при проверке FAT-таблицы.\n", foundErrors);
             printf("1 - Попытаться восстановить загрузочный сектор из резервной копии\n"
                 "2 - Завершить работу утилиты\n");
         }
