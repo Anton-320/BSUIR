@@ -20,10 +20,10 @@ void pdie(const char *msg, ...)
 */
 void* alloc(size_t amount, size_t size)
 {
-	void* this;
+	void* res;
 
-	if ((this = calloc(amount, size)))
-		return this;
+	if ((res = calloc(amount, size)))
+		return res;
 	pdie("calloc");
 		return NULL;		/* for GCC */
 }
@@ -57,7 +57,77 @@ void usage(const char* progName) {
 	printf("Проверяет FAT32 систему на устройстве на наличие ошибок\n");
 	printf("Программу необходимо запускать от имени суперпользователя\n");
 	printf("Опции:\n");
-	printf("	-i			Показать информацию про файловую систему (на основе загрузочного сектора)\n");
-	printf("	-t			Вывести дерево каталогов при проверке региона данных\n");
-	printf("	--help		Помощь\n");
+	printf("  -i        Показать информацию про файловую систему (на основе загрузочного сектора)\n");
+	printf("  -t        Вывести дерево каталогов при проверке региона данных\n");
+	printf("  --help    Помощь\n");
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// /**
+//  * Парсер пробелов удаляет лишние пробелы в строке
+//  * @returns	false, если в строке одни пробелы, иначе true
+// */
+// bool GapParser(char* str)
+// {
+// 	int len = strlen(str) - 1;	//длина - 1
+// 	int i = len, j = 0;
+// 	for (; i >= 0 && str[i] == ' '; i--)	// Убрать символы с конца
+// 		str[i] = '\0';
+// 	// Если одни пробелы
+// 	if (i == -1)
+// 		return false;
+	
+// 	i = j = 0;
+// 	while (str[j] == ' ') j += 1;
+// 	for (; j < len; i += 1, j += 1)
+// 	{
+// 		if (str[j] == ' ' && str[j + 1] == ' ')
+// 			while (j < len && str[j] == ' ' && str[j + 1] == ' ')
+// 				j += 1;
+// 		str[i] = str[j];
+// 	}
+// 	while (i < len) str[i++] = '\0';
+// 	return true;
+
+// }

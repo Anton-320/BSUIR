@@ -1,12 +1,9 @@
 #pragma once
-#include "general_fun.h"
 #include "structs.h"
 #include "lfn.h"
 #include "io.h"
-#include <curses.h>
 
-uint8_t viewInfoOpt = 0;    // Показать информацию о ФС
-uint8_t showFileTree = 0;   // Вывести файловое дерево на экран
+
 
 /**
  * Проверка всей файловой системы

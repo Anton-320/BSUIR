@@ -1,10 +1,10 @@
+#pragma once
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
 #include <stdbool.h>
-#include <curses.h>
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 

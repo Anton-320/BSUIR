@@ -1,6 +1,18 @@
 #include "lfn.h"
 
 /**
+ * Очистить стек
+*/
+void clear_stack(LfnStack* top) {
+    LfnStack* tmp = NULL;
+    while (top != NULL) {
+        tmp = top;
+        top = top->next;
+        free(tmp);
+    }
+}
+
+/**
  * Функция для перевода строки из Unicode в UTF-8
  * @param[out] dest    Символьная строка для результата (в UTF-8)
  * @param[in]  src     Массив 2-байтных элементов - кодовых точек символов (Unicode)
@@ -8,7 +20,7 @@
  * @returns            На сколько байтов сместился
 */
 static int encode_utf8(char* dest, uint16_t* src, int amount) {
-    char* initial = 0;
+    char* initial = dest;
     for (int i = 0; i < amount; i += 1) {
         dest[i] = 0;
         if (src[i] < 0x80) {
@@ -53,9 +65,9 @@ static int copy_lfn_part(char* dst, LfnEntry* lfn) {
  * @returns         Строку с длинным именем файла
 */
 char* put_name_from_stack(LfnStack** top, int size) {
-    char* res = (char*)alloc(size * 3 * 13, sizeof(char));  // Длинное имя файла
+    char* res = (char*)alloc(size * 3 * 13 + 1, sizeof(char));  // Длинное имя файла
     char* tmp = res;    // Для пробега по строке res для записи в res "длинных записей"
-    for (int i = 0; top != NULL; i += 1) {
+    for (int i = 1; *top != NULL; i += 1) {
         LfnStack* stackNode = *top;
 
         // Поиск длиннной записи и запись её в строку
@@ -73,11 +85,14 @@ char* put_name_from_stack(LfnStack** top, int size) {
             }
             tmp += copy_lfn_part(tmp, &stackNode->next->entry);
             // Удаление из стека
-            LfnStack* tmp = stackNode->next;
+            LfnStack* tmpNode = stackNode->next;
             stackNode->next = stackNode->next->next;
-            free(tmp);
+            free(tmpNode);
         }
     }
+
+    for (tmp -= 1; tmp >= res && (*tmp) == ' '; tmp -= 1)   // Убрать все пробелы с конца
+        *tmp = '\0';
     res = (char*)realloc(res, strlen(res) + 1);     // Обрезать память
     return res;
 }

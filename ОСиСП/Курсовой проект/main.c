@@ -17,10 +17,9 @@ static struct option option[] = {
 };
 
 int main(int argc, char* argv[]) {
-	initscr();
 	
 	if (argc == 1 || strlen(argv[1]) < 1) {
-		fprintf(stderr, "Ошибка. Неправильное количество аргументов\n");
+		printf("Ошибка. Неправильное количество аргументов\n");
 		usage("fatcheck");
 		return 0;
 	}
@@ -42,7 +41,7 @@ int main(int argc, char* argv[]) {
 			break;
 		}
 		default: {
-			fprintf(stderr, "Неправильные аргументы\n");
+			printf("Неправильные аргументы\n");
 			usage(progName);
 			break;
 		}
@@ -53,6 +52,5 @@ int main(int argc, char* argv[]) {
 	check_all();
 	printf("Проверка файловой системы завершена\n");
 	fs_close();
-	endwin();
 	return 0;
 }

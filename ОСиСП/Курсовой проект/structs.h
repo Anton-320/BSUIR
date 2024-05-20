@@ -12,7 +12,7 @@
 #define ATTR_DIR 0x10	    // directory
 #define ATTR_ARCH 0x20	    // archived
 #define ATTR_LFN (ATTR_RO | ATTR_HIDDEN | ATTR_SYS | ATTR_VOLUME)     // Атрибут записи длинной директории
-
+#define IS_LONG_ENT(x) ((x & ATTR_LFN) == ATTR_LFN)       // Проверить по атрибуту, является ли запись длинной
 
 
 /**
@@ -65,10 +65,10 @@ typedef struct _directory_entry_structure {
     uint16_t creationTime;          // Время создания
     uint16_t creationDate;          // Дата создания
     uint16_t lastAccessDate;        // Дата последнего доступа
-    uint16_t firstClusterHigh;      // Старшее слово номера первого кластера
+    uint16_t firstClusterHigh;      // Старшее слово индекса первого кластера в таблице FAT
     uint16_t lastModifiedTime;      // Время последнего изменения
     uint16_t lastModifiedDate;      // Дата последнего изменения
-    uint16_t firstClusterLow;       // Младшее слово номера первого кластера
+    uint16_t firstClusterLow;       // Младшее слово индекса первого кластера в таблице FAT
     uint32_t fileSize;              // Размер файла в байтах
 } __attribute__((packed)) DirEntry;
 

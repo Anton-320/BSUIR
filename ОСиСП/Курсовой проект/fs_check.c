@@ -1,6 +1,10 @@
 #include "fs_check.h"
+
 #define MAX_FAT_SIZE_BYTES 1073741824
 #define FAT_RECORD_SIZE 4       //Размер записи таблицы FAT
+
+uint8_t viewInfoOpt = 0;    // Показать информацию о ФС
+uint8_t showFileTree = 0;   // Вывести файловое дерево на экран
 
 static BootSector bs;           // Копия загрузочного сектора (только первые 90 байт)
 static uint32_t* fat;           // FAT-таблица
@@ -151,6 +155,7 @@ void check_all() {
 
     dataRegOff = bs.resvdSectCount * bs.bytesPerSector + bs.fatSz_32 * bs.bytesPerSector * bs.numFats;
     off_t rootOffset = dataRegOff + (bs.rootClusterNum - 2) * bs.sectorsPerCluster * bs.bytesPerSector;
+    printf("\nПроверенные файлы:\n\n");
     read_and_check_dir_tree(rootOffset, "/", 0);            // Проверить регион данных
 
     free(fat);                      // Освободить память
@@ -216,7 +221,7 @@ int check_boot_sector(bool print)
                 "многие программы и системы не будут корректно работать. Значение 2 даѐт избыточность FAT структуры, "
                 "при этом в случае потери сектора, данные не потеряются, потому что они дублированы. На не-дисковых носителях, "
                 "например карта памяти FLASH, где избыточность не требуется, для экономии памяти может использоваться значение 1,"
-                " но некоторые драйверы FAT могут работать неправильно.", bs.numFats);
+                " но некоторые драйверы FAT могут работать неправильно.\n", bs.numFats);
         errors += 1;
     }
     else if (bs.numFats > 2) {
@@ -226,13 +231,13 @@ int check_boot_sector(bool print)
                 "многие программы и системы не будут корректно работать. Значение 2 даѐт избыточность FAT структуры, "
                 "при этом в случае потери сектора, данные не потеряются, потому что они дублированы. На не-дисковых носителях, "
                 "например карта памяти FLASH, где избыточность не требуется, для экономии памяти может использоваться значение 1,"
-                " но некоторые драйверы FAT могут работать неправильно.", bs.numFats);
+                " но некоторые драйверы FAT могут работать неправильно.\n", bs.numFats);
         warnings += 1;
     }
 
-    if (!(bs.mediaType > 0xF8 && bs.mediaType < 0xFF) && bs.mediaType != 0xF0) {
+    if (!(bs.mediaType >= 0xF8 && bs.mediaType <= 0xFF) && bs.mediaType != 0xF0) {
         if (print)
-            fprintf(stdout, "Предупреждение в загрузочном секторе (BIOS Parameter Block) по смещению 21: %hhu недопустимое значение типа диска\n"
+            fprintf(stdout, "Предупреждение в загрузочном секторе (BIOS Parameter Block) по смещению 21: %hhx недопустимое значение типа диска\n"
                 "Разрешѐнные значения: 0xF0, 0xF8, 0xF9, 0xFA, 0xFB, 0xFC, 0xFD, 0xFE и 0xFF.\n", bs.mediaType);
         warnings += 1;
     }
@@ -273,6 +278,7 @@ int check_boot_sector(bool print)
  * Вывод информации о файловой системе
 */
 void print_filesystem_info() {
+    printf("Параметры диска:\n");
     printf("Системный ID: %s\n", bs.OEMName);
     printf("Количество байт в секторе: %hu\n", bs.bytesPerSector);
     printf("Количество секторов в кластере: %hhu\n", bs.sectorsPerCluster);
@@ -310,6 +316,7 @@ void print_filesystem_info() {
     if (bs.bkBootSec != 0)
         printf("Номер сектора в резервной области диска, где хранится копия boot сектора: %hu\n", bs.bkBootSec);
     printf("Имя диска: %s\n", bs.volumeLabel);
+    
     printf("Серийный номер диска: %u\n", bs.volumeID);
 }
 
@@ -385,19 +392,17 @@ static int get_dir_size(off_t offset) {
 }
 
 /**
- * Удалить записи одного файла из директории
+ * Удалить entAmount записей из директории, начиная со смещения startOff
 */
-static void delete_entry_from_dir(off_t lfnOffset, off_t sfnOffset) {
+static void delete_entries_from_dir(off_t startOff, int entAmount) {
     uint8_t tmp = 0xE5;
-    while (lfnOffset < sfnOffset) {
-        fs_write(lfnOffset, sizeof(uint8_t), &tmp);
-        lfnOffset += sizeof(LfnEntry);
+    for (int i = 0; i < entAmount; i += 1, startOff += sizeof(DirEntry)) {
+        fs_write(startOff, sizeof(uint8_t), &tmp);
     }
-    fs_write(sfnOffset, sizeof(uint8_t), &tmp);
 }
 
 /**
- * Получить номер первого кластера файла в регионе данных из записи директории
+ * Получить индекс первого кластера файла ! В ТАБЛИЦЕ FAT ! из записи директории
 */
 static uint32_t get_first_cluster_num(const DirEntry* sfn) {
     return ((sfn->firstClusterHigh * 65536) + sfn->firstClusterLow);
@@ -415,19 +420,19 @@ void read_and_check_dir_tree(off_t offset, const char* path, int depth) {
     DirEntry shortEntry = {};   // Временная переменная для короткой записи 
     char* fileName = NULL;      // Имя файла
     off_t lfnOffset = 0;        // Для хранения смещения lfn
-    off_t dirSize = get_dir_size(offset) * bs.sectorsPerCluster * bs.bytesPerSector;
+    off_t dirSize = get_dir_size(offset) * bs.sectorsPerCluster * bs.bytesPerSector;    // Размер директории в байтах
     off_t finalOffset = offset + dirSize;                             // Смещение конца директории
 
     for (; offset < finalOffset; offset += sizeof(DirEntry)) {        //  Цикл по записям (коротким) директории
         fs_read(offset, sizeof(LfnEntry), &tmpLfn);
-
-        if (tmpLfn.id == 0xE5 || tmpLfn.id == 0 || tmpLfn.id == 0x05) {
+        if (tmpLfn.id == 0xE5 || tmpLfn.id == 0x05) {
             offset += sizeof(DirEntry);
             continue;
         }
-
+        if (tmpLfn.id == 0)
+            break;
         lfnOffset = offset;
-        if (tmpLfn.attr & ATTR_LFN && tmpLfn.reserved == 0) {   // Если LFN ("длинная запись")
+        if (IS_LONG_ENT(tmpLfn.attr) && tmpLfn.reserved == 0) {       // Если LFN ("длинная запись")
             offset += sizeof(LfnEntry);                             // Сместить указатель на одну запись
             LfnStack* top = (LfnStack*)alloc(1, sizeof(LfnStack));  // Вершина стека с длинными записями
             top->entry = tmpLfn;    // Первая длинная запись
@@ -438,11 +443,20 @@ void read_and_check_dir_tree(off_t offset, const char* path, int depth) {
                 LfnStack* stackNode = (LfnStack*)alloc(1, sizeof(LfnStack));
                 fs_read(offset, sizeof(LfnEntry), &(stackNode->entry));
                 
-                if (stackNode->entry.id == 0xE5 || stackNode->entry.id == 0)
-                    pdie("Разрыв в списке длинных записей");
-                
-                if (stackNode->entry.attr & ATTR_LFN && stackNode->entry.reserved == 0) {
-                    stackNode->next = top;  // Если новая запись - длинная запись, сохранить в стеке
+                if (stackNode->entry.id == 0xE5 || stackNode->entry.id == 0) {
+                    clear_stack(top);
+                    fprintf(stderr, "Неисправность в Data Region: В каталоге %s обнаружена цепочка длинных записей"
+                        " по смещению %ld, не имеющая за собой короткой\n", path, offset);
+                    printf("1 - Удалить эти длинные записи директории\n");
+                    printf("2 - Оставить всё как есть\n");
+                    if (input_int(1, 2) == 1) {
+                        delete_entries_from_dir(lfnOffset, (offset - lfnOffset) / FAT_RECORD_SIZE);
+                    }
+                }
+
+                // Если новая запись - длинная запись, сохранить в стеке
+                if (IS_LONG_ENT(stackNode->entry.attr) && stackNode->entry.reserved == 0) {
+                    stackNode->next = top;
                     top = stackNode;
                     longEntryCount += 1;    // Подсчёт длинных записей
                 }
@@ -450,7 +464,7 @@ void read_and_check_dir_tree(off_t offset, const char* path, int depth) {
                     memcpy(&(shortEntry), &(stackNode->entry), sizeof(DirEntry));  // Скопировать в поле короткой записи из дерева каталогов
                     free(stackNode);        // Освободить память
                     stackNode = NULL;
-                    break;                  // Выйти из цикла
+                    break;                      // Выйти из цикла
                 }
                 offset += sizeof(LfnEntry); // Шаг считывания записей
             }
@@ -460,21 +474,25 @@ void read_and_check_dir_tree(off_t offset, const char* path, int depth) {
             memcpy(&shortEntry, &tmpLfn, sizeof(DirEntry));
             fileName = (char*)alloc(12, sizeof(char));
             memcpy(fileName, shortEntry.name, sizeof(shortEntry.name));
+            // Для записей "." и ".."
+            for (char* tmp = fileName + 10; tmp >= fileName && *tmp == ' '; tmp -= 1)
+                *tmp = '\0';
         }
         
         char* fullPath = (char*)alloc(strlen(path) + strlen(fileName) + 2, sizeof(char));
         strcpy(fullPath, path);
-        strcat(fullPath, "/");
+        if (depth > 0)
+            strcat(fullPath, "/");
         strcat(fullPath, fileName);
 
-        uint32_t fileFirstClusterNum = get_first_cluster_num(&shortEntry);      // Номер 1-ого кластера файла (относительно Data Region)
+        uint32_t fileFirstClusterNum = get_first_cluster_num(&shortEntry);      // Индекс 1-ого кластера файла (в таблице FAT)
         uint32_t fileFirstClusterVal = fat[fileFirstClusterNum] & 0x0FFFFFFF;   // Считать значение
         if (fileFirstClusterVal == 0x0FFFFFF7) {
             fprintf(stderr, "Неисправность в Data Region: файл %s лежит в BAD CLUSTER\n", fileName);
             printf("1 - Удалить эту запись из директории\n");
             printf("2 - Оставить как есть\n");
             if (input_int(1,2) == 1) {
-                delete_entry_from_dir(lfnOffset, offset);
+                delete_entries_from_dir(lfnOffset, ((offset - lfnOffset) / sizeof(LfnEntry)) + 1);
             }
             
         }
@@ -487,11 +505,11 @@ void read_and_check_dir_tree(off_t offset, const char* path, int depth) {
             switch(option) {
                 case 1: {
                     fat[fileFirstClusterNum + 2] = 0x0FFFFFFF;
-                    fs_write(lfnOffset, get_fat_offset(0) + fileFirstClusterNum * 4 + 2, (fat + fileFirstClusterNum + 2));
+                    fs_write(lfnOffset, get_fat_offset(0) + fileFirstClusterNum * 4, (fat + fileFirstClusterNum + 2));
                     break;
                 }
                 case 2: {
-                    delete_entry_from_dir(lfnOffset, offset);
+                    delete_entries_from_dir(lfnOffset, ((offset - lfnOffset) / sizeof(LfnEntry)) + 1);
                     break;
                 }
             }
@@ -500,12 +518,14 @@ void read_and_check_dir_tree(off_t offset, const char* path, int depth) {
         if (showFileTree) {
             rewind(stdout);
             for (int i = 0; i < depth; i += 1)
-                fputc(' ', stdout);
+                printf("  ");
             printf("%s\n", fileName);
         }
 
-        if (shortEntry.attributes & ATTR_DIR) {
-            read_and_check_dir_tree(fileFirstClusterNum, fullPath, depth + 1);
+        if (shortEntry.attributes & ATTR_DIR && strcmp(fileName, ".") && strcmp(fileName, "..")) {
+            // "- 2", потому что нужен индекс первого кластера отн-но региона данных, а не в FAT
+            uint32_t offInDataReg = (fileFirstClusterNum - 2) * bs.sectorsPerCluster * bs.bytesPerSector;
+            read_and_check_dir_tree(dataRegOff + offInDataReg, fullPath, depth + 1);
             continue;
         }
         free(fileName);
