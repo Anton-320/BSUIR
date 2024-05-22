@@ -41,9 +41,9 @@ int main(int argc, char* argv[]) {
 			break;
 		}
 		default: {
-			printf("Неправильные аргументы\n");
+			printf("Неправильные аргументы при запуске программы\n");
 			usage(progName);
-			break;
+			return 0;
 		}
 		}
 	}	

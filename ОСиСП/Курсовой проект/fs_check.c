@@ -315,7 +315,10 @@ void print_filesystem_info() {
     printf("Номер первого кластера корневой директории: %hu\n", bs.rootClusterNum);
     if (bs.bkBootSec != 0)
         printf("Номер сектора в резервной области диска, где хранится копия boot сектора: %hu\n", bs.bkBootSec);
-    printf("Имя диска: %s\n", bs.volumeLabel);
+    
+    char tmp [12] = {};
+    memcpy(tmp, bs.volumeLabel, sizeof(bs.volumeLabel));
+    printf("Имя диска: %s\n", tmp);
     
     printf("Серийный номер диска: %u\n", bs.volumeID);
 }
@@ -343,6 +346,7 @@ int check_fat_table(bool print) {
             visitedClusters[j] = 1;                 // Пометить кластер как уже пройденный
 
             if ((fat[j] & 0x0FFFFFFF) == 0 || (fat[j] & 0x0FFFFFFF) > entCount) { // Если следующий кластер пустой или за таблицей FAT, то разрыв
+                gaps += 1;
                 if (print) {
                     printf("Неисправность в FAT: Обнаружен разрыв в цепочке кластеров по смещению %u\n", j);
                     if ((fat[j] & 0x0FFFFFFF) == 0)
@@ -355,9 +359,9 @@ int check_fat_table(bool print) {
                     if (input_int(1, 2) == 1) {
                         fat[j] = 0x0FFFFFFF;
                         fs_write(get_fat_offset(0) + FAT_RECORD_SIZE * j, FAT_RECORD_SIZE, (fat + j));
+                        gaps -= 1;
                     }
                 }
-                gaps += 1;
                 break;
             }
             else if (visitedClusters[fat[j] & 0x0FFFFFFF]) {     // Если следующее значение уже проходили, то цикл в цепочек кластеров
