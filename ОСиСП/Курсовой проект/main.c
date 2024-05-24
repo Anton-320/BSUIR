@@ -38,7 +38,7 @@ int main(int argc, char* argv[]) {
 		}
 		case OPTION_HELP: {
 			usage(progName);
-			break;
+			return 0;
 		}
 		default: {
 			printf("Неправильные аргументы при запуске программы\n");

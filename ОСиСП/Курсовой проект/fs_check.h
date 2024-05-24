@@ -26,7 +26,13 @@ void print_filesystem_info();
  * @param[in] print Выводить ли сообщения об ошибках (true - да, false - нет)
  * @returns         Общее количество ошибок (циклов, разрывов и т.д.)
 */
-int check_fat_table(bool print);
+bool check_fats_are_same(uint32_t fatEntCount, int activeFatInd);
+
+/**
+ * Проверка неиспользованных кластеров FAT
+ * @param[in] fatEntCount Количество записей таблицы FAT
+*/
+void check_unused_fat_clusters(uint32_t fatEntCount);
 
 /**
  * Проверка дерева каталогов
@@ -34,6 +40,8 @@ int check_fat_table(bool print);
  * @param[in] offset    Смещение директории (файла с 32-байтными записями)
  * @param[in] path      Полный путь к директории (для корневого каталога == "/")
  * @param[in] depth     Глубина в дереве каталогов (для корневой директории == 0)
+ * @note	После считывания длинных записей смещение offset обновляется сразу, а после считывания
+ * короткой записи offset обновляется (становится в конец короткой записи) только в конце цикла for
 */
 void read_and_check_dir_tree(off_t offset, const char *path, int depth);
 
@@ -43,9 +51,3 @@ void read_and_check_dir_tree(off_t offset, const char *path, int depth);
  * @return В случае успеха возвращает смещение нормальной копии относительно начала раздела, иначе -1
 */
 off_t try_find_boot_sector_copy();
-
-/**
- * Ищет резервную копию FAT-таблицы, проверяет и записывает в буфер fat (статическая переменная)
- * @returns true (1), если удалось найти корректную резервную копию FAT-таблицы, иначе false(0)
-*/
-bool try_find_fat_copy();

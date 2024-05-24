@@ -22,14 +22,14 @@ void fs_open(const char *path, int rw)
  */
 void fs_read(off_t pos, size_t size, void *data)
 {
-	int got;
+	ssize_t got;
 	if (pos > 0) {
 		if (lseek(fd, pos, SEEK_SET) != pos)
 			perror("Read error");
 	}
 	if ((got = read(fd, data, size)) < 0)
 		pdie("Read %d bytes at %lld error", size, (long long)pos);
-	if (got != size)
+	if ((long long) got != (long long) size)
 		pdie("Got %d bytes instead of %d at %lld", got, size, (long long)pos);
 }
 
@@ -45,10 +45,10 @@ void ch_seek(off_t offset, int whence) {
  * Прочитать size байтов (с проверкой)
 */
 void ch_read(size_t size, void *data) {
-	int got = read(fd, data, size);
+	ssize_t got = read(fd, data, size);
 	if (got < 0)
 		pdie("Read %d bytes error", size);
-	if (got != size)
+	if ((long long) got != (long long) size)
 		pdie("Got %d bytes instead of %d", got, size);
 	
 }
@@ -57,8 +57,8 @@ void fs_write(off_t pos, size_t size, void *data)
 {
 	if (lseek(fd, pos, SEEK_SET) != pos)
 		pdie("Seek to %lld", (long long)pos);
-	int writtenBytesAmount = write(fd, data, size);
-	if (writtenBytesAmount != size)
+	ssize_t writtenBytesAmount = write(fd, data, size);
+	if ((long long)writtenBytesAmount != (long long)size)
 		pdie("Wrote %d bytes instead of %d at %lld", writtenBytesAmount, size, (long long)pos);
 	if (writtenBytesAmount < 0)
 		pdie("Write %d bytes at %lld error", size, (long long)pos);
