@@ -23,7 +23,7 @@ typedef struct {
 
     // До смещения 36
 
-    uint8_t  jmpBoot[3];         // Код для перехода к загрузочному коду
+    uint8_t  jmpBoot[3];         // Код (инструкции) для перехода к загрузочному коду
     uint8_t  OEMName[8];         // Имя OEM (производителя) системы
     uint16_t bytesPerSector;     // Количество байтов в секторе
     uint8_t  sectorsPerCluster;  // Количество секторов в кластере
@@ -71,8 +71,3 @@ typedef struct _directory_entry_structure {
     uint16_t firstClusterLow;       // Младшее слово индекса первого кластера в таблице FAT
     uint32_t fileSize;              // Размер файла в байтах
 } __attribute__((packed)) DirEntry;
-
-typedef struct _int_pair {
-    int first;
-    int last;
-} PAIR;

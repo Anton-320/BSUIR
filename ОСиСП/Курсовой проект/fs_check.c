@@ -95,23 +95,15 @@ static void check_root_cluster_chain() {
 				printf("Кластер %u является пустым кластером (равен 0), что недопустимо в цепочке кластеров\n", current);
 			else
 				printf("Кластер %u указывает на значение %u, которое находится за пределами FAT\n", current, fat[current] & 0x0FFFFFFF);
-			fat[current] = 0x0FFFFFFF;
+			fat[current] = 0x0FFFFFF8;
 			fs_write(fatOffset + FAT_RECORD_SIZE * current, FAT_RECORD_SIZE, (fat + current));
 			printf("Кластер с неправильным значением помечен EOC\n");
 			break;
 		}
-		else if (fatEntState[fat[current] & 0x0FFFFFFF] == CHECKED_CLUS
-			|| fatEntState[fat[current] & 0x0FFFFFFF] == CLUS_BELONG_CHAIN) {     // Если следующее значение уже проходили, то цикл в цепочек кластеров        
-			
-			if (fatEntState[fat[current] & 0x0FFFFFFF] == CHECKED_CLUS) {
-				printf("Неисправность в FAT в цепочке кластеров корневого каталога: Обнаружен цикл\n"
-					"Кластер %u указывает на кластер %u, который находится перед кластером %u\n", current, fat[current], current);
-			}
-			else {
-				printf("Неисправность в FAT в цепочке кластеров корневого каталога: "
-					"Кластер %u указывает на кластер %u, который находится в другой цепочке кластеров\n", current, fat[current]);
-			}			
-			fat[current] = 0x0FFFFFFF;
+		else if (fatEntState[fat[current] & 0x0FFFFFFF] == CHECKED_CLUS) {     // Если следующее значение уже проходили, то цикл в цепочке кластеров        
+			printf("Неисправность в FAT в цепочке кластеров корневого каталога: Обнаружен цикл\n"
+				"Кластер %u указывает на кластер %u, который находится перед кластером %u\n", current, fat[current], current);
+			fat[current] = 0x0FFFFFF8;
 			fs_write(fatOffset + FAT_RECORD_SIZE * current, FAT_RECORD_SIZE, (fat + current));
 			printf("Кластер с неправильным значением помечен EOC\n");
 			break;
@@ -168,7 +160,7 @@ void check_all() {
 	fat = (uint32_t*)alloc(fatEntCount, FAT_RECORD_SIZE);
 	int activeFatInd = (bs.extFlags & 0x0080) ? bs.extFlags & 0x000F : 0;		// Номер FAT, изнчально принимаемой за активную
 
-	int usingFat = activeFatInd;		// Номер используемой FAT в ходе проверки файловой системы
+	int usingFat = activeFatInd;			// Номер используемой FAT в ходе проверки файловой системы
 	//Сравнение таблиц FAT
 	if (!check_fats_are_same(fatEntCount, activeFatInd)) {
 		printf("Таблицы FAT различаются. Выберите, какую таблицу FAT использовать\n");
@@ -202,13 +194,12 @@ void check_all() {
 int check_boot_sector(bool print)
 {
 	int errors = 0;   // Общее число ошибок
-	int warnings = 0; // Общее число предупреждений
 
 	if (bs.jmpBoot[0] != 0xEB && bs.jmpBoot[0] != 0xE9) {
 		if (print)
 			fprintf(stdout, "Неисправность в Boot Sector по смещению 0: %hhu недопустимое значение для BS_jmpBoot "
 				"(jump инструкция на начало загрузочного кода операционной системы)\n"
-				"Допустимыми значениями являются 0xEB и 0xE9 (0xEB используется чаще)\n",
+				"Допустимыми значениями являются 0xEB и 0xE9 (0xEB используется чаще)\n\n",
 				bs.jmpBoot[0]);
 		errors += 1;
 	};
@@ -216,7 +207,7 @@ int check_boot_sector(bool print)
 	if (bs.bytesPerSector != 512 && bs.bytesPerSector != 1024 && bs.bytesPerSector != 2048 && bs.bytesPerSector != 4096) {
 		if (print)
 			fprintf(stdout, "Неисправность в загрузочном секторе (BIOS Parameter Block) по смещению 11: %hu недопустимое количество байт в секторе для FAT32.\n"
-				"Допустимыми значениями считаются 512, 1024, 2048, 4096\n", bs.bytesPerSector);
+				"Допустимыми значениями считаются 512, 1024, 2048, 4096\n\n", bs.bytesPerSector);
 		errors += 1;
 	}
 
@@ -227,21 +218,20 @@ int check_boot_sector(bool print)
 		
 		if (print)
 			fprintf(stdout, "Неисправность в загрузочном секторе (BIOS Parameter Block) по смещению 13: %hhu недопустимое количество секторов в кластере.\n"
-				"Допустимыми значениями считаются 2, 4, 8, 16, 32, 64, 128\n", bs.sectorsPerCluster);
+				"Допустимыми значениями считаются 2, 4, 8, 16, 32, 64, 128\n\n", bs.sectorsPerCluster);
 		errors += 1;
 	}
 	else if (bs.sectorsPerCluster * bs.bytesPerSector > (32 * 1024)) {
 		if (print)
 			fprintf(stdout, "Предупреждение в загрузочном секторе (BIOS Parameter Block) по смещению 13: размер кластера %u, что больше, чем 32К.\n"
-				"Это может привести к неправильной работе многих (в том числе установочных) программ\n",
+				"Это может привести к неправильной работе многих (в том числе установочных) программ\n\n",
 				(unsigned int)(bs.sectorsPerCluster * bs.bytesPerSector));
-		warnings += 1;
 	}
 	
 	if (bs.resvdSectCount <= 0) {
 		if (print)
 			fprintf(stdout, "Неисправность в загрузочном секторе (BIOS Parameter Block) по смещению 14: %hu недопустимое количество секторов в Reserved Region\n"
-				"Количество секторов в Reserved Region должно быть больше 0\n", bs.resvdSectCount);
+				"Количество секторов в Reserved Region должно быть больше 0\n\n", bs.resvdSectCount);
 		errors += 1;
 	}
 
@@ -252,7 +242,7 @@ int check_boot_sector(bool print)
 				"многие программы и системы не будут корректно работать. Значение 2 даѐт избыточность FAT структуры, "
 				"при этом в случае потери сектора, данные не потеряются, потому что они дублированы. На не-дисковых носителях, "
 				"например карта памяти FLASH, где избыточность не требуется, для экономии памяти может использоваться значение 1,"
-				" но некоторые драйверы FAT могут работать неправильно.\n", bs.numFats);
+				" но некоторые драйверы FAT могут работать неправильно.\n\n", bs.numFats);
 		errors += 1;
 	}
 	else if (bs.numFats > 2) {
@@ -262,21 +252,19 @@ int check_boot_sector(bool print)
 				"многие программы и системы не будут корректно работать. Значение 2 даѐт избыточность FAT структуры, "
 				"при этом в случае потери сектора, данные не потеряются, потому что они дублированы. На не-дисковых носителях, "
 				"например карта памяти FLASH, где избыточность не требуется, для экономии памяти может использоваться значение 1,"
-				" но некоторые драйверы FAT могут работать неправильно.\n", bs.numFats);
-		warnings += 1;
+				" но некоторые драйверы FAT могут работать неправильно.\n\n", bs.numFats);
 	}
 
 	if (bs.mediaType < 0xF8 && bs.mediaType != 0xF0) {
 		if (print)
 			fprintf(stdout, "Предупреждение в загрузочном секторе (BIOS Parameter Block) по смещению 21: %hhx недопустимое значение типа диска\n"
-				"Разрешѐнные значения: 0xF0, 0xF8, 0xF9, 0xFA, 0xFB, 0xFC, 0xFD, 0xFE и 0xFF.\n", bs.mediaType);
-		warnings += 1;
+				"Разрешѐнные значения: 0xF0, 0xF8, 0xF9, 0xFA, 0xFB, 0xFC, 0xFD, 0xFE и 0xFF.\n\n", bs.mediaType);
 	}
 
 	if (bs.totalSectors_32 == 0) {
 		if (print)
 			fprintf(stdout, "Неисправность в загрузочном секторе (BIOS Parameter Block) по смещению 32: %u недопустимое значение количества секторов на диске\n"
-				"Это поле включает общее количество секторов на диске. Количество секторов на диске должно быть не равно 0\n", bs.totalSectors_32);
+				"Это поле включает общее количество секторов на диске. Количество секторов на диске должно быть не равно 0\n\n", bs.totalSectors_32);
 		errors += 1;
 	}
 	
@@ -284,7 +272,7 @@ int check_boot_sector(bool print)
 		if (print)
 			fprintf(stdout, "Неисправность в загрузочном секторе (BIOS Parameter Block) по смещению 36: %u слишком большой размер FAT-таблицы в секторах\n"
 				"Максимально допустимый размер FAT-таблицы в байтах - %d, размер сектора в данной ФС - %hu. "
-				"Следовательно максимально допустимый размер FAT в секторах - %u\n",
+				"Следовательно максимально допустимый размер FAT в секторах - %u\n\n",
 				bs.fatSz_32, MAX_FAT_SIZE_BYTES, bs.bytesPerSector, (uint32_t)(MAX_FAT_SIZE_BYTES / bs.bytesPerSector));
 		errors += 1;
 	}
@@ -292,7 +280,7 @@ int check_boot_sector(bool print)
 	if (bs.checkSignature != 0xAA55) {
 		if (print) {
 			fprintf(stdout, "Неисправность в загрузочном секторе (BIOS Parameter Block) по смещению 510: "
-				"По данному смещению должна располагаться сигнатура 0xAA55\n");            
+				"По данному смещению должна располагаться сигнатура 0xAA55\n\n");            
 			printf("1 - Добавить сигнатуру 0xAA55 по смещению 510\n");
 			printf("2 - Оставить как есть\n");
 			if (input_int(1, 2) == 1) {
@@ -364,16 +352,16 @@ void print_filesystem_info() {
 */
 bool check_fats_are_same(uint32_t fatEntCount, int activeFatInd) {
 	init_fat_offset(activeFatInd);
-	for (int i = 0; i < bs.numFats; i += 1) {
+	for (int i = 0; i < bs.numFats; i += 1) {				// Цикл по таблицам FAT, сравниваемым с активной
 		if (i == activeFatInd)
 			continue;
-		// Начальное смещение таблицы FAT, сравниваемой с начальной (согласно её номеру)
-		off_t fatOffsetTmp = (bs.resvdSectCount + i * bs.fatSz_32 * bs.bytesPerSector) * bs.bytesPerSector;
-		for (uint32_t j = 0; j < fatEntCount; j += 1) {
+		// Начальное смещение таблицы FAT, сравниваемой с активной (согласно её номеру)
+		off_t fatOffsetTmp = (bs.resvdSectCount + i * bs.fatSz_32) * bs.bytesPerSector;
+		for (uint32_t j = 0; j < fatEntCount; j += 1) {		// Цикл сравнения 2-х таблиц FAT
 			uint32_t activeFatVal = 0;
 			uint32_t anotherFatVal = 0;
-			fs_read(fatOffset + j * 4, FAT_RECORD_SIZE, &activeFatVal);
-			fs_read(fatOffsetTmp + j * 4, FAT_RECORD_SIZE, &anotherFatVal);
+			fs_read(fatOffset + j * FAT_RECORD_SIZE, FAT_RECORD_SIZE, &activeFatVal);
+			fs_read(fatOffsetTmp + j * FAT_RECORD_SIZE, FAT_RECORD_SIZE, &anotherFatVal);
 			if (activeFatVal != anotherFatVal)
 				return false;
 		}
@@ -463,6 +451,23 @@ static int check_cluster_chain(uint32_t fstClusNum, const char* path, off_t file
 			printf("Файл обрезан, кластер с неправильным значением помечен EOC\n");
 			break;
 		}
+		else if ((fat[i] & 0x0FFFFFFF) == 0x0FFFFFF7) {
+			printf("Неисправность в FAT: Обнаружен BAD CLUSTER в цепочке кластеров файла %s\n", path);
+			printf("1 - Удалить этот файл\n");
+			printf("2 - Заменить BAD CLUSTER на EOC (может быть небезопасно)\n");
+			printf("3 - Оставить как есть\n");
+			int option = input_int(1, 3);
+			if (option == 1) {
+				delete_file(fileOff, fileEntAmount, fstClusNum);
+				printf("Файл удалён\n");
+			}
+			else if (option == 2) {
+				fat[i] = 0x0FFFFFFF;
+				fs_write(fatOffset + FAT_RECORD_SIZE * i, FAT_RECORD_SIZE, (fat + i));
+				printf("Кластер со значением BAD CLUSTER помечен EOC\n");
+			}
+			break;
+		}
 		else if (fatEntState[fat[i] & 0x0FFFFFFF] == CHECKED_CLUS
 			|| fatEntState[fat[i] & 0x0FFFFFFF] == CLUS_BELONG_CHAIN) {     // Если следующее значение уже проходили, то цикл в цепочек кластеров        
 			
@@ -473,20 +478,10 @@ static int check_cluster_chain(uint32_t fstClusNum, const char* path, off_t file
 			else {
 				printf("Неисправность в FAT: Обнаружен цикл в цепочке кластеров\n"
 					"Кластер %u указывает на кластер %u, который находится в другой цепочке кластеров\n", i, fat[i]);
-			}			
+			}
 			fat[i] = 0x0FFFFFFF;
 			fs_write(fatOffset + FAT_RECORD_SIZE * i, FAT_RECORD_SIZE, (fat + i));
 			printf("Файл обрезан, кластер с неправильным значением помечен EOC\n");
-			break;
-		}
-		else if ((fat[i] & 0x0FFFFFFF) == 0x0FFFFFF7) {
-			printf("Неисправность в FAT: Обнаружен BAD CLUSTER в цепочке кластеров файла %s\n", path);
-			printf("1 - Удалить этот файл\n");
-			printf("2 - Оставить как есть\n");
-			if (input_int(1, 2) == 1) {
-				delete_file(fileOff, fileEntAmount, fstClusNum);
-				printf("Файл удалён\n");
-			}
 			break;
 		}
 	}
@@ -516,7 +511,6 @@ void read_and_check_dir_tree(off_t offset, const char* path, int depth) {
 	for (; offset < finalOffset; offset += sizeof(DirEntry)) {        //  Цикл по записям (коротким) директории
 		fs_read(offset, sizeof(LfnEntry), &tmpLfn);
 		if (tmpLfn.id == 0xE5 || tmpLfn.id == 0x05) {
-			offset += sizeof(DirEntry);
 			continue;
 		}
 		if (tmpLfn.id == 0)
@@ -551,7 +545,7 @@ void read_and_check_dir_tree(off_t offset, const char* path, int depth) {
 					top = stackNode;
 					longEntryCount += 1;    // Подсчёт длинных записей
 				}
-				else {                      // Если новая запись - короткая запись
+				else {                      // Если новая запись - короткая запись						
 					memcpy(&(shortEntry), &(stackNode->entry), sizeof(DirEntry));  // Скопировать в поле короткой записи из дерева каталогов
 					free(stackNode);        // Освободить память
 					stackNode = NULL;
