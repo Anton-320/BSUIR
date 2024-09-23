@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.MenuButton?>
+<?import javafx.scene.control.MenuItem?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.layout.AnchorPane?>
+
+<AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="700.0" prefWidth="500.0" styleClass="main-background" stylesheets="@style/yellow-theme.css" xmlns="http://javafx.com/javafx/22" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.byshnev.comport.ComController">
+   <children>
+      <AnchorPane id="winInput" layoutX="14.0" layoutY="14.0" prefHeight="220.0" prefWidth="220.0" styleClass="windows-background" stylesheets="@style/yellow-theme.css" AnchorPane.leftAnchor="8.0" AnchorPane.topAnchor="8.0">
+         <children>
+            <Label layoutX="77.0" layoutY="5.0" text="Окно ввода" AnchorPane.topAnchor="5.0" />
+            <TextArea fx:id="inputTextArea" layoutX="9.0" layoutY="53.0" prefHeight="140.0" prefWidth="200.0" AnchorPane.topAnchor="50.0" />
+         </children></AnchorPane>
+      <AnchorPane layoutX="266.0" layoutY="14.0" prefHeight="220.0" prefWidth="220.0" styleClass="windows-background" stylesheets="@style/yellow-theme.css" AnchorPane.rightAnchor="8.0" AnchorPane.topAnchor="8.0">
+         <children>
+            <Label layoutX="73.0" layoutY="5.0" text="Окно вывода" AnchorPane.topAnchor="5.0" />
+            <TextArea fx:id="outputTextArea" editable="false" layoutX="10.0" layoutY="53.0" prefHeight="140.0" prefWidth="200.0" AnchorPane.topAnchor="50.0" />
+         </children></AnchorPane>
+      <AnchorPane layoutX="23.0" layoutY="248.0" prefHeight="80.0" prefWidth="454.0" styleClass="windows-background" stylesheets="@style/yellow-theme.css" AnchorPane.leftAnchor="8.0" AnchorPane.rightAnchor="8.0">
+         <children>
+            <Label layoutX="178.0" layoutY="5.0" text="Окно управления" AnchorPane.topAnchor="5.0" />
+            <MenuButton fx:id="comNumberMenu" layoutX="43.0" layoutY="52.0" mnemonicParsing="false" prefHeight="26.0" prefWidth="43.0" stylesheets="@style/yellow-theme.css" AnchorPane.topAnchor="40.0">
+              <items>
+                <MenuItem mnemonicParsing="false" text="Action 1" />
+                <MenuItem mnemonicParsing="false" text="Action 2" />
+              </items>
+            </MenuButton>
+            <Label layoutX="36.0" layoutY="28.0" text="COM-порт" AnchorPane.topAnchor="20.0" />
+            <MenuButton fx:id="bitsInByteMenu" layoutX="341.0" layoutY="52.0" mnemonicParsing="false" prefHeight="26.0" prefWidth="43.0" stylesheets="@style/yellow-theme.css" AnchorPane.topAnchor="40.0">
+               <items>
+                  <MenuItem mnemonicParsing="false" text="Action 1" />
+                  <MenuItem mnemonicParsing="false" text="Action 2" />
+               </items>
+            </MenuButton>
+            <Label layoutX="297.0" layoutY="25.0" text="Количество бит в байте" AnchorPane.topAnchor="20.0" />
+            <Label fx:id="noAvailablePortsLabel" layoutX="149.0" layoutY="44.0" text="Нет доступных COM-портов" />
+         </children>
+      </AnchorPane>
+      <AnchorPane layoutX="23.0" layoutY="339.0" prefHeight="348.0" prefWidth="454.0" styleClass="windows-background" stylesheets="@style/yellow-theme.css">
+         <children>
+            <Label layoutX="183.0" layoutY="5.0" text="Окно состояния" AnchorPane.topAnchor="5.0" />
+            <Label layoutX="24.0" layoutY="22.0" prefHeight="18.0" prefWidth="106.0" text="Скорость (бод):" />
+            <Label layoutX="24.0" layoutY="40.0" prefHeight="18.0" prefWidth="106.0" text="Передано байтов:" />
+            <TextArea fx:id="collisionInfoTextArea" editable="false" layoutX="15.2" layoutY="216.0" prefHeight="108.0" prefWidth="424.0" AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0" />
+            <TextArea fx:id="cadresStructureTextArea" editable="false" layoutX="15.0" layoutY="76.0" prefHeight="108.0" prefWidth="424.0" AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0" />
+            <Label layoutX="24.0" layoutY="58.0" prefHeight="18.0" prefWidth="106.0" text="Структура кадров:" />
+            <Label layoutX="24.0" layoutY="198.0" text="Информация о коллизиях:" />
+            <Label fx:id="baudRateLabel" layoutX="130.0" layoutY="23.0" prefHeight="18.0" prefWidth="43.0" />
+            <Label fx:id="bytesCountLabel" layoutX="130.0" layoutY="41.0" prefHeight="18.0" prefWidth="43.0" />
+         </children>
+      </AnchorPane>
+   </children>
+   <padding>
+      <Insets bottom="15.0" left="15.0" right="15.0" top="10.0" />
+   </padding>
+</AnchorPane>
